@@ -72,11 +72,13 @@
 
   function tvSymbol(group, symbol, tvOverride) {
     if (tvOverride) return tvOverride;
+    if (group === "twse") return "TWSE:" + symbol;
+    if (group === "tpex") return "TPEX:" + symbol;
+    if (group === "index" && symbol === "TWII") return "TWSE:TWII";
     if (group === "dji") return "NYSE:" + symbol;
     if (group === "ndx") return "NASDAQ:" + symbol;
     if (group === "index" && symbol === "DJI30") return "DJI";
     if (group === "index" && symbol === "NDX100") return "NASDAQ:NDX";
-    if (group === "tpex") return "TPEX:" + symbol.replace(".TWO", "");
     if (symbol === "TXF1!" || symbol.endsWith("TXF1!")) return "TAIFEX:TXF1!";
     return symbol;
   }

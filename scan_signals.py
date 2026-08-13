@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""US indices + DJI30 / NDX100 constituents — AR/DR + trend-line scanner."""
+"""Taiwan TWSE listed + TPEx OTC stocks — AR/DR + trend-line scanner."""
 
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ find_trend_touch = tl.find_trend_touch
 find_trend_exceed = tl.find_trend_exceed
 line_end_at_break = tl.line_end_at_break
 
-UA = {"User-Agent": "Mozilla/5.0 (compatible; US-Alerts/1.0)"}
+UA = {"User-Agent": "Mozilla/5.0 (compatible; TW-Alerts/1.0)"}
 KIND_ORDER = {"trend_exceed": 0, "ar_dr_touch": 1, "ar_dr_near": 2, "trend_touch": 3}
 
 
@@ -494,7 +494,7 @@ def render_html(payload: dict) -> str:
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="refresh" content="3600" />
-  <title>US Touch Alerts</title>
+  <title>台股 Touch Alerts</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {{
@@ -579,9 +579,9 @@ def render_html(payload: dict) -> str:
 </head>
 <body>
   <div class="wrap">
-    <h1>US · AR/DR &amp; 趨勢線 Alerts</h1>
+    <h1>台股 · AR/DR &amp; 趨勢線 Alerts</h1>
     <p class="meta">
-      商品池 <strong>DJI30</strong> + <strong>NDX100</strong> 指數及成分股 · 週期 <strong>{tf_labels}</strong> ·
+      商品池 <strong>上市</strong> + <strong>上櫃</strong> 及 <strong>加權指數</strong> · 週期 <strong>{tf_labels}</strong> ·
       掃描 {u['total']} 檔 × {u['timeframes']} 週期 = {u['jobs']} jobs · 更新 {gen}
     </p>
     <div class="cards">
@@ -594,8 +594,8 @@ def render_html(payload: dict) -> str:
     <div class="pool-filters" id="poolFilters">
       <button type="button" data-pool="all" class="active">全部池</button>
       <button type="button" data-pool="index">指數</button>
-      <button type="button" data-pool="dji">DJI30 成分</button>
-      <button type="button" data-pool="ndx">NDX100 成分</button>
+      <button type="button" data-pool="twse">上市</button>
+      <button type="button" data-pool="tpex">上櫃</button>
     </div>
     <div class="pool-filters" id="tfFilters">
       <button type="button" data-tf="all" class="active">全部週期</button>
@@ -670,8 +670,8 @@ def main() -> int:
         for tf in TIMEFRAME_ORDER:
             jobs.append({**job, "timeframe": tf})
     indices_n = sum(1 for j in base_jobs if j["group"] == "index")
-    dji_n = sum(1 for j in base_jobs if j["group"] == "dji")
-    ndx_n = sum(1 for j in base_jobs if j["group"] == "ndx")
+    twse_n = sum(1 for j in base_jobs if j["group"] == "twse")
+    tpex_n = sum(1 for j in base_jobs if j["group"] == "tpex")
     print(
         f"Scanning {len(jobs)} jobs "
         f"({len(base_jobs)} symbols × {len(TIMEFRAME_ORDER)} TF: {', '.join(fmt_tf(t) for t in TIMEFRAME_ORDER)})…",
@@ -679,7 +679,7 @@ def main() -> int:
     )
 
     results: list[dict] = []
-    workers = 10 if os.environ.get("GITHUB_ACTIONS") else 8
+    workers = 16 if os.environ.get("GITHUB_ACTIONS") else 8
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futs = {pool.submit(scan_job, j): j for j in jobs}
         done = 0
@@ -723,8 +723,8 @@ def main() -> int:
         "universe": {
             "total": len(base_jobs),
             "indices": indices_n,
-            "dji": dji_n,
-            "ndx": ndx_n,
+            "twse": twse_n,
+            "tpex": tpex_n,
             "timeframes": len(TIMEFRAME_ORDER),
             "jobs": len(jobs),
         },

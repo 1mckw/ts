@@ -1,4 +1,4 @@
-name: Hourly US Alerts (DJI30 + NDX100)
+name: Hourly TW Alerts (上市 + 上櫃)
 
 on:
   schedule:
@@ -20,13 +20,13 @@ permissions:
   id-token: write
 
 concurrency:
-  group: hourly-us-alerts
+  group: hourly-tw-alerts
   cancel-in-progress: true
 
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Scan DJI30 + NDX100 universe
+      - name: Scan TWSE + TPEx universe
         if: github.event_name != 'push'
         env:
           PYTHONUNBUFFERED: "1"
@@ -54,7 +54,7 @@ jobs:
             echo "No signal file changes"
             exit 0
           fi
-          git commit -m "chore: update US hourly touch alerts (DJI30 + NDX100)"
+          git commit -m "chore: update TW hourly touch alerts (上市 + 上櫃)"
           git pull --rebase origin main || true
           git push origin main
         env:

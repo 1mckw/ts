@@ -1,19 +1,21 @@
-# US AR/DR Touch Alerts
+# 台股 AR/DR Touch Alerts
 
-GitHub Pages 每小時掃描 **道瓊 30、納指 100 指數及成分股** 日 K，輸出 AR/DR 與趨勢線觸碰報告。
+GitHub Pages 每小時掃描 **台股上市、上櫃** 及 **加權指數** 日 K，輸出 AR/DR 與趨勢線觸碰報告。
 
 ## 線上報告
 
-- HTML：https://1mckw.github.io/alerts/
+- HTML：https://1mckw.github.io/ts/
 - JSON：`/latest.json`
 
 ## 商品池
 
 | 池 | 數量 | 說明 |
 |----|------|------|
-| **指數** | 2 | DJI30（`^DJI`）、NDX100（`^NDX`） |
-| **DJI30 成分** | 30 | 道瓊 30 成分股 |
-| **NDX100 成分** | ~102 | 納指 100 成分股（與 DJI 重疊者歸類為 DJI30） |
+| **指數** | 1 | 加權指數（`^TWII`） |
+| **上市** | ~1100 | TWSE 四碼普通股／ETF（Yahoo：`XXXX.TW`） |
+| **上櫃** | ~890 | TPEx 四碼上櫃股票（Yahoo：`XXXX.TWO`） |
+
+清單來源：執行時自 [TWSE OpenAPI](https://openapi.twse.com.tw/) 與 [TPEx OpenAPI](https://www.tpex.org.tw/openapi/) 抓取，四碼代號過濾（排除權證等非四碼商品）。
 
 週期：**1D · 4H · 1H** · 更新：每小時（UTC 整點）
 
@@ -43,7 +45,7 @@ GitHub Pages 每小時掃描 **道瓊 30、納指 100 指數及成分股** 日 K
 
 ## 手動觸發
 
-Repo → **Actions** → **Hourly US Alerts (DJI30 + NDX100)** → **Run workflow**
+Repo → **Actions** → **Hourly TW Alerts (上市 + 上櫃)** → **Run workflow**
 
 ## 本機
 
@@ -51,4 +53,4 @@ Repo → **Actions** → **Hourly US Alerts (DJI30 + NDX100)** → **Run workflo
 python scan_signals.py
 ```
 
-成分股清單：`universe.py`（NDX100 來源：slickcharts.com/nasdaq100）
+商品清單：`universe.py`（執行時自 TWSE / TPEx OpenAPI 載入）

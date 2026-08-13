@@ -2,8 +2,8 @@
 (function () {
   const poolBar = document.getElementById("poolFilters");
   const tfBar = document.getElementById("tfFilters");
-  const POOL_KEY = "us_alerts_pool_filter";
-  const TF_KEY = "us_alerts_tf_filter";
+  const POOL_KEY = "tw_alerts_pool_filter";
+  const TF_KEY = "tw_alerts_tf_filter";
   let pool = "all";
   let tf = "all";
   try {
@@ -91,7 +91,7 @@
     }
     list.innerHTML = items
       .map((x) => {
-        const pool = { index: "指數", dji: "DJI30", ndx: "NDX100" }[x.group] || x.group;
+        const pool = { index: "指數", twse: "上市", tpex: "上櫃" }[x.group] || x.group;
         const tf = String(x.timeframe || "1d").toUpperCase();
         const hit = x.hasHit ? " · 有信號" : "";
         return (
