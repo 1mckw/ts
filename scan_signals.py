@@ -31,24 +31,8 @@ TIMEFRAMES: dict[str, dict[str, Any]] = {
         "touch_window": 5,
         "label": "1D",
     },
-    "4h": {
-        "interval": "4h",
-        "range": "730d",
-        "bars": 1400,
-        "chart_bars": 560,
-        "touch_window": 10,
-        "label": "4H",
-    },
-    "1h": {
-        "interval": "1h",
-        "range": "730d",
-        "bars": 2000,
-        "chart_bars": 800,
-        "touch_window": 35,
-        "label": "1H",
-    },
 }
-TIMEFRAME_ORDER = ("1d", "4h", "1h")
+TIMEFRAME_ORDER = ("1d",)
 TF_ORDER = {tf: i for i, tf in enumerate(TIMEFRAME_ORDER)}
 
 LOOKBACK = ardr.LOOKBACK
@@ -485,7 +469,6 @@ def render_html(payload: dict) -> str:
         + ";window.WATCHLISTS = {};</script>\n"
     )
 
-    tf_labels = " · ".join(fmt_tf(tf) for tf in TIMEFRAME_ORDER)
     filter_script = read_static("report-pool-filter.html")
 
     return f"""<!DOCTYPE html>
@@ -581,8 +564,8 @@ def render_html(payload: dict) -> str:
   <div class="wrap">
     <h1>台股 · AR/DR &amp; 趨勢線 Alerts</h1>
     <p class="meta">
-      商品池 <strong>上市</strong> + <strong>上櫃</strong> 及 <strong>加權指數</strong> · 週期 <strong>{tf_labels}</strong> ·
-      掃描 {u['total']} 檔 × {u['timeframes']} 週期 = {u['jobs']} jobs · 更新 {gen}
+      商品池 <strong>上市</strong> + <strong>上櫃</strong> 及 <strong>加權指數</strong> · 週期 <strong>1D</strong> ·
+      掃描 {u['total']} 檔 · 更新 {gen}
     </p>
     <div class="cards">
       <div class="card"><div class="lbl">掃描 OK</div><div class="val">{c['ok']}/{c['jobs']}</div></div>
@@ -597,19 +580,12 @@ def render_html(payload: dict) -> str:
       <button type="button" data-pool="twse">上市</button>
       <button type="button" data-pool="tpex">上櫃</button>
     </div>
-    <div class="pool-filters" id="tfFilters">
-      <button type="button" data-tf="all" class="active">全部週期</button>
-      <button type="button" data-tf="1d">1D</button>
-      <button type="button" data-tf="4h">4H</button>
-      <button type="button" data-tf="1h">1H</button>
-    </div>
-
     <h2>趨勢線超出（最新 {TREND_EXCEED_MIN_BARS}–{TREND_EXCEED_MAX_BARS} 根）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="exceed">{rows(exceed, "目前無超出信號", 8, row_exceed)}</tbody></table></div>
 
-    <h2>AR / DR 觸碰（超過各週期門檻根數後）</h2>
+    <h2>AR / DR 觸碰（超過 5 根日 K 後）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="ar_dr">{rows(ar_dr, "目前無 AR/DR 觸碰", 8, row_ar_dr)}</tbody></table></div>
