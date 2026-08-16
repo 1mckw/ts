@@ -12,7 +12,7 @@ Ray rules
   Each AR/DR signal bar draws two horizontal wick rays (upper=high, lower=low).
   Both extend right from the signal bar; each stops at its first wick touch.
   Scanner reports primary wick late touch: AR→high, DR→low, only after >10 bars on 1D.
-  Fresh alerts: touch in last 2 bars. Lookback list: late touch within last 50 bars.
+  Fresh alerts: touch in last 2 bars. Lookback list: late touch within last 40 bars after >20 bars.
   Near-miss: primary wick still active, >10 bars, fresh bar wick within tolerance but no touch.
 """
 
@@ -28,7 +28,8 @@ VOL_MULT = 1.2
 USE_STRUCTURE = True
 TOUCH_WINDOW_BARS = 10  # ~two trading weeks on 1D
 FRESH_BARS = 2
-LATE_TOUCH_LOOKBACK_BARS = 50
+LATE_TOUCH_LOOKBACK_BARS = 40
+LATE_TOUCH_MIN_BARS = 20
 NEAR_MISS_TOL_PCT = 0.004  # wick within 0.4% of ray level, no touch
 
 
@@ -247,7 +248,7 @@ def collect_late_ar_dr_touches(
 def collect_late_ar_dr_touches_in_lookback(
     candles: list[dict],
     signals: list[dict],
-    touch_window_bars: int = TOUCH_WINDOW_BARS,
+    touch_window_bars: int = LATE_TOUCH_MIN_BARS,
     lookback_bars: int = LATE_TOUCH_LOOKBACK_BARS,
 ) -> list[dict]:
     """Report late primary-wick touch when touch bar falls within the last lookback_bars."""
