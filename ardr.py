@@ -25,7 +25,7 @@ DROP_PCT = 3.0
 MIN_STREAK = 3
 VOL_MULT = 1.2
 USE_STRUCTURE = True
-TOUCH_WINDOW_BARS = 5  # one trading week on 1D
+TOUCH_WINDOW_BARS = 10  # ~two trading weeks on 1D
 FRESH_BARS = 2
 NEAR_MISS_TOL_PCT = 0.004  # wick within 0.4% of ray level, no touch
 

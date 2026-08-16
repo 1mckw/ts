@@ -28,7 +28,7 @@ TIMEFRAMES: dict[str, dict[str, Any]] = {
         "range": "5y",
         "bars": 800,
         "chart_bars": 320,
-        "touch_window": 5,
+        "touch_window": 10,
         "label": "1D",
     },
 }
@@ -623,7 +623,7 @@ def render_html(payload: dict) -> str:
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="exceed">{rows(exceed, "目前無超出信號", 8, row_exceed)}</tbody></table></div>
 
-    <h2>AR / DR 觸碰（超過各週期門檻根數後）</h2>
+    <h2>AR / DR 觸碰（超過 10 根日 K 後）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="ar_dr">{rows(ar_dr, "目前無 AR/DR 觸碰", 8, row_ar_dr)}</tbody></table></div>
