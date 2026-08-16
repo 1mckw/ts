@@ -29,7 +29,7 @@ TIMEFRAMES: dict[str, dict[str, Any]] = {
         "bars": 800,
         "chart_bars": 320,
         "touch_window": 10,
-        "late_touch_lookback": 200,
+        "late_touch_lookback": 50,
         "label": "1D",
     },
 }
@@ -314,14 +314,14 @@ def scan_job(job: dict[str, str]) -> dict:
         candles = with_retries(lambda: fetch_yahoo(yahoo, timeframe))
         signals = detect_signals(candles)
         late = collect_late_ar_dr_touches(candles, signals, touch_window)
-        late_200 = collect_late_ar_dr_touches_in_lookback(
+        late_lb = collect_late_ar_dr_touches_in_lookback(
             candles, signals, touch_window, lookback
         )
         near = collect_late_ar_dr_near_misses(candles, signals, touch_window)
         lines = build_auto_trend_lines(candles)
         trend = collect_trend_touches(candles, lines)
         exceed = collect_trend_exceeds(candles, lines)
-        events = late + late_200 + near + trend + exceed
+        events = late + late_lb + near + trend + exceed
         for ev in events:
             ev["timeframe"] = timeframe
         return {
@@ -621,7 +621,7 @@ def render_html(payload: dict) -> str:
     <div class="cards">
       <div class="card"><div class="lbl">掃描 OK</div><div class="val">{c['ok']}/{c['jobs']}</div></div>
       <div class="card"><div class="lbl">AR/DR 觸碰</div><div class="val">{c['ar_dr_touch']}</div></div>
-      <div class="card"><div class="lbl">AR/DR 晚觸200</div><div class="val">{c['ar_dr_late_touch']}</div></div>
+      <div class="card"><div class="lbl">AR/DR 晚觸50</div><div class="val">{c['ar_dr_late_touch']}</div></div>
       <div class="card"><div class="lbl">AR/DR 接近</div><div class="val">{c['ar_dr_near']}</div></div>
       <div class="card"><div class="lbl">趨勢線觸碰</div><div class="val">{c['trend_touch']}</div></div>
       <div class="card"><div class="lbl">趨勢線超出</div><div class="val">{c['trend_exceed']}</div></div>
@@ -643,10 +643,10 @@ def render_html(payload: dict) -> str:
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="ar_dr">{rows(ar_dr, "目前無 AR/DR 觸碰", 8, row_ar_dr)}</tbody></table></div>
 
-    <h2>AR / DR 晚觸碰（200 根日 K 內曾觸碰 · 超過 10 根後）</h2>
+    <h2>AR / DR 晚觸碰（50 根日 K 內曾觸碰 · 超過 10 根後）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
-    </tr></thead><tbody data-section="ar_dr_late">{rows(ar_dr_late, "目前無 200 根內晚觸碰", 8, row_ar_dr)}</tbody></table></div>
+    </tr></thead><tbody data-section="ar_dr_late">{rows(ar_dr_late, "目前無 50 根內晚觸碰", 8, row_ar_dr)}</tbody></table></div>
 
     <h2>AR / DR 接近未觸</h2>
     <div class="panel"><table><thead><tr>

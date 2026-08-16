@@ -12,7 +12,7 @@ Ray rules
   Each AR/DR signal bar draws two horizontal wick rays (upper=high, lower=low).
   Both extend right from the signal bar; each stops at its first wick touch.
   Scanner reports primary wick late touch: AR→high, DR→low, only after >10 bars on 1D.
-  Fresh alerts: touch in last 2 bars. Lookback list: late touch within last 200 bars.
+  Fresh alerts: touch in last 2 bars. Lookback list: late touch within last 50 bars.
   Near-miss: primary wick still active, >10 bars, fresh bar wick within tolerance but no touch.
 """
 
@@ -28,7 +28,7 @@ VOL_MULT = 1.2
 USE_STRUCTURE = True
 TOUCH_WINDOW_BARS = 10  # ~two trading weeks on 1D
 FRESH_BARS = 2
-LATE_TOUCH_LOOKBACK_BARS = 200
+LATE_TOUCH_LOOKBACK_BARS = 50
 NEAR_MISS_TOL_PCT = 0.004  # wick within 0.4% of ray level, no touch
 
 
