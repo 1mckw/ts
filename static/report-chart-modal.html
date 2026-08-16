@@ -122,6 +122,7 @@
 
   function typeLabel(type, kind) {
     if (kind === "ar_dr_touch") return type || "AR/DR";
+    if (kind === "ar_dr_late_touch") return (type || "AR/DR") + " 晚觸碰";
     if (kind === "ar_dr_near") return (type || "AR/DR") + " 接近未觸";
     if (kind === "trend_exceed") {
       if (type === "resistance") return "阻力超出";

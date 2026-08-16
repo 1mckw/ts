@@ -11,8 +11,9 @@ DR
 Ray rules
   Each AR/DR signal bar draws two horizontal wick rays (upper=high, lower=low).
   Both extend right from the signal bar; each stops at its first wick touch.
-  Scanner reports primary wick late touch: AR→high, DR→low, only after >one trading week (5 bars on 1D).
-  Near-miss: primary wick still active, >5 bars, fresh bar wick within tolerance but no touch.
+  Scanner reports primary wick late touch: AR→high, DR→low, only after >10 bars on 1D.
+  Fresh alerts: touch in last 2 bars. Lookback list: late touch within last 200 bars.
+  Near-miss: primary wick still active, >10 bars, fresh bar wick within tolerance but no touch.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ VOL_MULT = 1.2
 USE_STRUCTURE = True
 TOUCH_WINDOW_BARS = 10  # ~two trading weeks on 1D
 FRESH_BARS = 2
+LATE_TOUCH_LOOKBACK_BARS = 200
 NEAR_MISS_TOL_PCT = 0.004  # wick within 0.4% of ray level, no touch
 
 
@@ -178,6 +180,42 @@ def fresh_range(n: int) -> tuple[int, int]:
     return lo, last
 
 
+def lookback_range(n: int, lookback_bars: int) -> tuple[int, int]:
+    last = n - 1
+    lo = max(0, last - (lookback_bars - 1))
+    return lo, last
+
+
+def _late_touch_hit(
+    candles: list[dict],
+    sig: dict,
+    ray: dict,
+    *,
+    kind: str,
+    label: str,
+    touch_window_bars: int,
+) -> dict | None:
+    ti = ray.get("touch_index")
+    if ti is None:
+        return None
+    bars_after = ti - sig["index"]
+    if bars_after <= touch_window_bars:
+        return None
+    return {
+        "kind": kind,
+        "label": label,
+        "type": sig["type"],
+        "wick": ray["side"],
+        "signal_time": sig["time"],
+        "signal_index": sig["index"],
+        "bars_after_signal": bars_after,
+        "time": candles[ti]["time"],
+        "index": ti,
+        "level": ray["level"],
+        "close": candles[ti]["close"],
+    }
+
+
 def collect_late_ar_dr_touches(
     candles: list[dict], signals: list[dict], touch_window_bars: int = TOUCH_WINDOW_BARS
 ) -> list[dict]:
@@ -189,29 +227,51 @@ def collect_late_ar_dr_touches(
     for sig in signals:
         rays = resolve_signal_rays(candles, sig)
         ray = primary_wick_ray(rays, sig["type"])
-        ti = ray.get("touch_index")
-        if ti is None:
+        hit = _late_touch_hit(
+            candles,
+            sig,
+            ray,
+            kind="ar_dr_touch",
+            label=f"{sig['type']} 觸碰",
+            touch_window_bars=touch_window_bars,
+        )
+        if not hit:
             continue
-        bars_after = ti - sig["index"]
-        if bars_after <= touch_window_bars:
-            continue
+        ti = hit["index"]
         if not (lo <= ti <= last):
             continue
-        hits.append(
-            {
-                "kind": "ar_dr_touch",
-                "label": f"{sig['type']} 觸碰",
-                "type": sig["type"],
-                "wick": ray["side"],
-                "signal_time": sig["time"],
-                "signal_index": sig["index"],
-                "bars_after_signal": bars_after,
-                "time": candles[ti]["time"],
-                "index": ti,
-                "level": ray["level"],
-                "close": candles[ti]["close"],
-            }
+        hits.append(hit)
+    return hits
+
+
+def collect_late_ar_dr_touches_in_lookback(
+    candles: list[dict],
+    signals: list[dict],
+    touch_window_bars: int = TOUCH_WINDOW_BARS,
+    lookback_bars: int = LATE_TOUCH_LOOKBACK_BARS,
+) -> list[dict]:
+    """Report late primary-wick touch when touch bar falls within the last lookback_bars."""
+    if not candles:
+        return []
+    lo, last = lookback_range(len(candles), lookback_bars)
+    hits: list[dict] = []
+    for sig in signals:
+        rays = resolve_signal_rays(candles, sig)
+        ray = primary_wick_ray(rays, sig["type"])
+        hit = _late_touch_hit(
+            candles,
+            sig,
+            ray,
+            kind="ar_dr_late_touch",
+            label=f"{sig['type']} 晚觸碰",
+            touch_window_bars=touch_window_bars,
         )
+        if not hit:
+            continue
+        ti = hit["index"]
+        if not (lo <= ti <= last):
+            continue
+        hits.append(hit)
     return hits
 
 
