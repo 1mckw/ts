@@ -52,6 +52,7 @@ TREND_EXCEED_MIN_BARS = tl.TREND_EXCEED_MIN_BARS
 TREND_EXCEED_MAX_BARS = tl.TREND_EXCEED_MAX_BARS
 TREND_EXCEED_BARS = tl.TREND_EXCEED_BARS
 build_auto_trend_lines = tl.build_auto_trend_lines
+build_best_touch_line = tl.build_best_touch_line
 check_line_invalidation = tl.check_line_invalidation
 find_trend_touch = tl.find_trend_touch
 find_trend_exceed = tl.find_trend_exceed
@@ -197,15 +198,35 @@ def collect_trend_exceeds(candles: list[dict], lines: list[dict]) -> list[dict]:
     return hits
 
 
+def chart_pack_start_index(
+    candles: list[dict],
+    lines: list[dict],
+    chart_bars: int,
+    best_touch_line: dict | None = None,
+) -> int:
+    """Default last chart_bars; extend back to earliest trend-line p1 so lines are not clipped."""
+    tail = max(0, len(candles) - chart_bars)
+    if not candles:
+        return tail
+    starts = [int(line["p1"]["index"]) for line in lines] if lines else []
+    if best_touch_line is not None:
+        starts.append(int(best_touch_line["p1"]["index"]))
+    if not starts:
+        return tail
+    return min(tail, min(starts))
+
+
 def build_chart_pack(
     candles: list[dict],
     signals: list[dict],
     lines: list[dict],
     chart_bars: int = 800,
 ) -> dict:
-    trimmed = candles[-chart_bars:] if len(candles) > chart_bars else candles
+    best_touch = build_best_touch_line(candles)
+    start_idx = chart_pack_start_index(candles, lines, chart_bars, best_touch)
+    trimmed = candles[start_idx:]
     if not trimmed:
-        return {"candles": [], "rays": [], "trend_lines": []}
+        return {"candles": [], "rays": [], "trend_lines": [], "best_touch_line": None}
 
     t_min = int(trimmed[0]["time"])
     t_max = int(trimmed[-1]["time"])
@@ -240,6 +261,20 @@ def build_chart_pack(
                 "pivot_count": int(line.get("pivot_count") or 0),
             }
         )
+
+    best_touch_line = None
+    if best_touch is not None:
+        end_time, end_price = line_end_at_break(candles, best_touch)
+        best_touch_line = {
+            "type": best_touch["type"],
+            "p1": {"time": int(best_touch["p1"]["time"]), "price": float(best_touch["p1"]["price"])},
+            "p2": {"time": int(best_touch["p2"]["time"]), "price": float(best_touch["p2"]["price"])},
+            "endTime": int(end_time),
+            "endPrice": float(end_price),
+            "invalidated": check_line_invalidation(candles, best_touch),
+            "pivot_count": int(best_touch.get("pivot_count") or 0),
+        }
+
     return {
         "candles": [
             {
@@ -253,6 +288,7 @@ def build_chart_pack(
         ],
         "rays": rays,
         "trend_lines": trend,
+        "best_touch_line": best_touch_line,
     }
 
 
@@ -469,6 +505,7 @@ def render_html(payload: dict) -> str:
         + ";window.WATCHLISTS = {};</script>\n"
     )
 
+    tf_labels = " · ".join(fmt_tf(tf) for tf in TIMEFRAME_ORDER)
     filter_script = read_static("report-pool-filter.html")
 
     return f"""<!DOCTYPE html>
@@ -564,8 +601,8 @@ def render_html(payload: dict) -> str:
   <div class="wrap">
     <h1>台股 · AR/DR &amp; 趨勢線 Alerts</h1>
     <p class="meta">
-      商品池 <strong>上市</strong> + <strong>上櫃</strong> 及 <strong>加權指數</strong> · 週期 <strong>1D</strong> ·
-      掃描 {u['total']} 檔 · 更新 {gen}
+      商品池 <strong>上市</strong> + <strong>上櫃</strong> 及 <strong>加權指數</strong> · 週期 <strong>{tf_labels}</strong> ·
+      掃描 {u['total']} 檔 × {u['timeframes']} 週期 = {u['jobs']} jobs · 更新 {gen}
     </p>
     <div class="cards">
       <div class="card"><div class="lbl">掃描 OK</div><div class="val">{c['ok']}/{c['jobs']}</div></div>
@@ -580,12 +617,13 @@ def render_html(payload: dict) -> str:
       <button type="button" data-pool="twse">上市</button>
       <button type="button" data-pool="tpex">上櫃</button>
     </div>
+
     <h2>趨勢線超出（最新 {TREND_EXCEED_MIN_BARS}–{TREND_EXCEED_MAX_BARS} 根）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="exceed">{rows(exceed, "目前無超出信號", 8, row_exceed)}</tbody></table></div>
 
-    <h2>AR / DR 觸碰（超過 5 根日 K 後）</h2>
+    <h2>AR / DR 觸碰（超過各週期門檻根數後）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="ar_dr">{rows(ar_dr, "目前無 AR/DR 觸碰", 8, row_ar_dr)}</tbody></table></div>

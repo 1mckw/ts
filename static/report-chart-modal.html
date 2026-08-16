@@ -79,6 +79,7 @@
     if (group === "ndx") return "NASDAQ:" + symbol;
     if (group === "index" && symbol === "DJI30") return "DJI";
     if (group === "index" && symbol === "NDX100") return "NASDAQ:NDX";
+    if (group === "tpex") return "TPEX:" + symbol.replace(".TWO", "");
     if (symbol === "TXF1!" || symbol.endsWith("TXF1!")) return "TAIFEX:TXF1!";
     return symbol;
   }
@@ -264,6 +265,18 @@
       drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, 2);
     });
 
+    const bestTouch = pack.best_touch_line;
+    if (bestTouch) {
+      drawSegment(
+        bestTouch.p1.time,
+        bestTouch.p1.price,
+        bestTouch.endTime,
+        bestTouch.endPrice,
+        "rgba(250,204,21,0.95)",
+        2,
+      );
+    }
+
     (pack.rays || []).forEach((ray) => {
       drawRaySegments(ray);
     });
@@ -393,7 +406,7 @@
   closeBtn.addEventListener("click", closeModal);
 
   const CATALOG = window.SYMBOL_CATALOG || [];
-  const GROUP_LABEL = { index: "指數", dji: "DJI30", ndx: "NDX100", twse: "上市", tpex: "上櫃" };
+  const GROUP_LABEL = { index: "指數", dji: "DJI30", ndx: "NDX100", sp500: "SP500", twse: "上市", tpex: "上櫃" };
   const fab = document.getElementById("symbolFab");
   const searchOverlay = document.getElementById("symbolOverlay");
   const searchInput = document.getElementById("symbolSearch");
