@@ -786,7 +786,11 @@ def main() -> int:
             print(f"  {e['symbol']} ({e['yahoo_symbol']}): {e['error']}", flush=True)
 
     print(f"Hits: {len(hits)} · OK: {ok}/{len(jobs)}", flush=True)
-    return 0 if ok > 0 else 1
+    if ok == 0:
+        return 1
+    if ok < len(jobs) * 0.5:
+        print(f"Warning: fewer than half of jobs succeeded ({ok}/{len(jobs)})", flush=True)
+    return 0
 
 
 if __name__ == "__main__":

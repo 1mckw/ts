@@ -30,13 +30,13 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Python
         if: github.event_name != 'push'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -50,14 +50,19 @@ jobs:
       - name: Commit signal report
         if: github.event_name != 'push'
         run: |
-          git add signals/latest.json signals/latest.html signals/index.html signals/chart-packs.json
+          git add signals/latest.json signals/latest.html signals/index.html
           if git diff --staged --quiet; then
             echo "No signal file changes"
             exit 0
           fi
           git commit -m "chore: update TW hourly touch alerts (上市 + 上櫃)"
           git pull --rebase origin main || true
-          git push origin main
+          for i in 1 2 3; do
+            git push origin main && break
+            echo "Push failed, retry $i/3..."
+            git pull --rebase origin main || true
+            sleep 5
+          done
         env:
           GIT_AUTHOR_NAME: github-actions[bot]
           GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
@@ -65,6 +70,7 @@ jobs:
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
 
       - name: Prepare Pages site
+        if: github.event_name != 'push'
         run: |
           mkdir -p _site
           cp signals/latest.html _site/index.html
@@ -72,12 +78,14 @@ jobs:
           cp signals/chart-packs.json _site/chart-packs.json
           touch _site/.nojekyll
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'push'
         with:
           path: _site
 
   deploy:
     needs: scan
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

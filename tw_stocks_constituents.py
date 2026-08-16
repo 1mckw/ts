@@ -4,16 +4,25 @@ from __future__ import annotations
 
 import json
 import re
+import time
+import urllib.error
 import urllib.request
 
 UA = {"User-Agent": "Mozilla/5.0 (compatible; TW-Alerts/1.0)"}
 _CODE4 = re.compile(r"^\d{4}$")
 
 
-def _http_get_json(url: str, timeout: int = 60) -> list | dict:
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+def _http_get_json(url: str, timeout: int = 60, retries: int = 3) -> list | dict:
+    last_err: Exception | None = None
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(url, headers=UA)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            last_err = exc
+            time.sleep(1.5 * (attempt + 1))
+    raise last_err  # type: ignore[misc]
 
 
 def fetch_twse_stocks() -> list[tuple[str, str]]:
