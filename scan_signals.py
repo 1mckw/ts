@@ -403,6 +403,7 @@ def render_html(payload: dict) -> str:
     hits = payload["hits"]
     ar_dr = [h for h in hits if h["kind"] == "ar_dr_touch"]
     ar_dr_late = [h for h in hits if h["kind"] == "ar_dr_late_touch"]
+    ar_dr_late.sort(key=lambda h: int(h.get("bars_after_signal") or 0), reverse=True)
     ar_near = [h for h in hits if h["kind"] == "ar_dr_near"]
     trend = [h for h in hits if h["kind"] == "trend_touch"]
     exceed = [h for h in hits if h["kind"] == "trend_exceed"]
