@@ -102,7 +102,7 @@
     <h1>台股 · AR/DR &amp; 趨勢線 Alerts</h1>
     <p class="meta">
       商品池 <strong>上市</strong> + <strong>上櫃</strong> 及 <strong>加權指數</strong> · 週期 <strong>1D</strong> ·
-      掃描 1984 檔 × 1 週期 = 1984 jobs · 更新 2026-08-19 12:37:50 UTC
+      掃描 1984 檔 × 1 週期 = 1984 jobs · 更新 2026-08-19 13:22:08 UTC
     </p>
     <div class="cards">
       <div class="card"><div class="lbl">掃描 OK</div><div class="val">1984/1984</div></div>
@@ -607,6 +607,9 @@
     statusEl.hidden = true;
   }
 
+  const LINE_W = 1;
+  const BEST_TOUCH_COLOR = "rgba(59,130,246,0.95)";
+
   function drawSegment(t0, p0, t1, p1, color, width, style) {
     if (t0 == null || t1 == null || t0 === t1) return;
     const s = chart.addLineSeries({
@@ -639,7 +642,7 @@
         seg.t1,
         seg.price,
         rayColor(ray.type, seg.active),
-        seg.side === "upper" ? 1 : 1,
+        LINE_W,
         LightweightCharts.LineStyle.Dashed
       );
     }
@@ -705,7 +708,7 @@
       const color = line.type === "resistance"
         ? `rgba(239,68,68,${alpha})`
         : `rgba(34,197,94,${alpha})`;
-      drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, 2);
+      drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, LINE_W);
     });
 
     const bestTouch = pack.best_touch_line;
@@ -715,8 +718,8 @@
         bestTouch.p1.price,
         bestTouch.endTime,
         bestTouch.endPrice,
-        "rgba(250,204,21,0.95)",
-        2,
+        BEST_TOUCH_COLOR,
+        LINE_W,
       );
     }
 

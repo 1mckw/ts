@@ -67,7 +67,7 @@
     <nav class="page-nav"><a href="index.html" class="">Alerts</a><a href="watchlist.html" class="active">自選</a></nav>
     <h1>台股 · 自選</h1>
     <p class="meta">
-      共 78 檔 · 有信號 3 · 有圖表 76 · 更新 2026-08-19 12:37:50 UTC
+      共 78 檔 · 有信號 3 · 有圖表 76 · 更新 2026-08-19 13:22:08 UTC
     </p>
     <div class="cards">
       <div class="card"><div class="lbl">自選檔數</div><div class="val">78</div></div>
@@ -361,6 +361,9 @@
     statusEl.hidden = true;
   }
 
+  const LINE_W = 1;
+  const BEST_TOUCH_COLOR = "rgba(59,130,246,0.95)";
+
   function drawSegment(t0, p0, t1, p1, color, width, style) {
     if (t0 == null || t1 == null || t0 === t1) return;
     const s = chart.addLineSeries({
@@ -393,7 +396,7 @@
         seg.t1,
         seg.price,
         rayColor(ray.type, seg.active),
-        seg.side === "upper" ? 1 : 1,
+        LINE_W,
         LightweightCharts.LineStyle.Dashed
       );
     }
@@ -459,7 +462,7 @@
       const color = line.type === "resistance"
         ? `rgba(239,68,68,${alpha})`
         : `rgba(34,197,94,${alpha})`;
-      drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, 2);
+      drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, LINE_W);
     });
 
     const bestTouch = pack.best_touch_line;
@@ -469,8 +472,8 @@
         bestTouch.p1.price,
         bestTouch.endTime,
         bestTouch.endPrice,
-        "rgba(250,204,21,0.95)",
-        2,
+        BEST_TOUCH_COLOR,
+        LINE_W,
       );
     }
 
