@@ -30,7 +30,8 @@ TOUCH_WINDOW_BARS = 10  # ~two trading weeks on 1D
 FRESH_BARS = 2
 LATE_TOUCH_LOOKBACK_BARS = 40
 LATE_TOUCH_MIN_BARS = 20
-NEAR_MISS_TOL_PCT = 0.004  # wick within 0.4% of ray level, no touch
+LATE_TOUCH_MIN_DISPLAY_BARS = 60
+NEAR_MISS_TOL_PCT = 0.01  # wick within 1% of ray level, no touch
 
 
 def bear_bar(c: list[dict], i: int) -> bool:
@@ -250,6 +251,7 @@ def collect_late_ar_dr_touches_in_lookback(
     signals: list[dict],
     touch_window_bars: int = LATE_TOUCH_MIN_BARS,
     lookback_bars: int = LATE_TOUCH_LOOKBACK_BARS,
+    min_display_bars: int = LATE_TOUCH_MIN_DISPLAY_BARS,
 ) -> list[dict]:
     """Report late primary-wick touch when touch bar falls within the last lookback_bars."""
     if not candles:
@@ -268,6 +270,8 @@ def collect_late_ar_dr_touches_in_lookback(
             touch_window_bars=touch_window_bars,
         )
         if not hit:
+            continue
+        if int(hit.get("bars_after_signal") or 0) < min_display_bars:
             continue
         ti = hit["index"]
         if not (lo <= ti <= last):
