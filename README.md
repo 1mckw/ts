@@ -5,6 +5,7 @@ GitHub Pages 每小時掃描 **台股上市、上櫃** 及 **加權指數** 日 
 ## 線上報告
 
 - HTML：https://1mckw.github.io/ts/
+- 自選：https://1mckw.github.io/ts/watchlist.html
 - JSON：`/latest.json`
 
 ## 商品池
@@ -52,4 +53,4 @@ Repo → **Actions** → **Hourly TW Alerts (上市 + 上櫃)** → **Run workfl
 python scan_signals.py
 ```
 
-商品清單：`universe.py` · 來源：`tw_stocks_constituents.py`（`scripts/fetch_tw_stocks.py` 可輸出靜態快照）
+商品清單：`universe.py` · 自選：`watchlist.py`（`scripts/fetch_tw_stocks.py` 可輸出靜態快照）

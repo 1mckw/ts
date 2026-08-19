@@ -1,0 +1,15 @@
+<script>
+(function () {
+  document.querySelectorAll("#watchlistTable .sym-btn").forEach((btn) => {
+    btn.dataset.kind = "watchlist";
+  });
+  document.querySelectorAll("#watchlistTable tbody tr[data-symbol]").forEach((tr) => {
+    tr.style.cursor = "pointer";
+    tr.addEventListener("click", (ev) => {
+      if (ev.target.closest(".sym-btn")) return;
+      const btn = tr.querySelector(".sym-btn");
+      if (btn) btn.click();
+    });
+  });
+})();
+</script>

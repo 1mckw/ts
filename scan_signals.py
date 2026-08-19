@@ -16,6 +16,7 @@ from typing import Any
 import ardr
 import trendlines as tl
 from universe import GROUP_ORDER, build_scan_jobs, group_label
+from watchlist import WATCHLIST_NAME, WATCHLIST_SYMBOLS
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(ROOT, "signals")
@@ -399,6 +400,86 @@ def build_symbol_catalog(results: list[dict], charts: dict) -> list[dict]:
     return catalog
 
 
+def page_nav_html(active: str) -> str:
+    alerts_cls = "active" if active == "alerts" else ""
+    wl_cls = "active" if active == "watchlist" else ""
+    return (
+        f'<nav class="page-nav">'
+        f'<a href="index.html" class="{alerts_cls}">Alerts</a>'
+        f'<a href="watchlist.html" class="{wl_cls}">{html.escape(WATCHLIST_NAME)}</a>'
+        f"</nav>"
+    )
+
+
+def build_watchlist_items(
+    symbols: list[str],
+    slim_results: list[dict],
+    hits: list[dict],
+    charts: dict,
+) -> list[dict]:
+    result_map: dict[str, dict] = {}
+    for r in slim_results:
+        if (r.get("timeframe") or "1d") != "1d":
+            continue
+        result_map[r["symbol"]] = r
+
+    hit_map: dict[str, list[str]] = {}
+    for h in hits:
+        sym = h["symbol"]
+        if sym not in symbols:
+            continue
+        label = str(h.get("label") or h.get("kind") or "")
+        if label and label not in hit_map.get(sym, []):
+            hit_map.setdefault(sym, []).append(label)
+
+    items: list[dict] = []
+    for sym in symbols:
+        r = result_map.get(sym)
+        if r and not r.get("error"):
+            g = r["group"]
+            name = r.get("name") or sym
+            ck = chart_key(g, sym, "1d")
+            items.append(
+                {
+                    "symbol": sym,
+                    "group": g,
+                    "name": name,
+                    "timeframe": "1d",
+                    "hasHit": sym in hit_map,
+                    "hasChart": ck in charts,
+                    "signals": hit_map.get(sym, []),
+                    "error": None,
+                }
+            )
+        elif r and r.get("error"):
+            items.append(
+                {
+                    "symbol": sym,
+                    "group": r.get("group", "?"),
+                    "name": r.get("name") or sym,
+                    "timeframe": "1d",
+                    "hasHit": False,
+                    "hasChart": False,
+                    "signals": [],
+                    "error": r.get("error"),
+                }
+            )
+        else:
+            items.append(
+                {
+                    "symbol": sym,
+                    "group": "?",
+                    "name": sym,
+                    "timeframe": "1d",
+                    "hasHit": False,
+                    "hasChart": False,
+                    "signals": [],
+                    "error": "不在掃描結果",
+                }
+            )
+    return items
+
+
 def render_html(payload: dict) -> str:
     hits = payload["hits"]
     ar_dr = [h for h in hits if h["kind"] == "ar_dr_touch"]
@@ -520,7 +601,9 @@ def render_html(payload: dict) -> str:
         "<script>window.CHART_PACKS = {};"
         + "window.SYMBOL_CATALOG = "
         + json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))
-        + ";window.WATCHLISTS = {};</script>\n"
+        + ";window.WATCHLISTS = "
+        + json.dumps({WATCHLIST_NAME: WATCHLIST_SYMBOLS}, ensure_ascii=False, separators=(",", ":"))
+        + ";</script>\n"
     )
 
     tf_labels = " · ".join(fmt_tf(tf) for tf in TIMEFRAME_ORDER)
@@ -579,6 +662,15 @@ def render_html(payload: dict) -> str:
     .sym-btn:hover code {{ text-decoration: underline; }}
     footer {{ margin-top: 28px; color: var(--muted); font-size: .75rem; }}
     a {{ color: var(--primary); }}
+    .page-nav {{ display: flex; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }}
+    .page-nav a {{
+      font-size: .85rem; padding: 8px 14px; border-radius: 999px; text-decoration: none;
+      border: 1px solid var(--border); color: var(--muted);
+    }}
+    .page-nav a.active {{
+      color: #04110e; border-color: transparent;
+      background: linear-gradient(135deg, #00f0c8, #00b894);
+    }}
     .search-fab {{
       position: fixed; right: 18px; bottom: 22px; z-index: 70;
       display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px;
@@ -617,6 +709,7 @@ def render_html(payload: dict) -> str:
 </head>
 <body>
   <div class="wrap">
+    {page_nav_html("alerts")}
     <h1>台股 · AR/DR &amp; 趨勢線 Alerts</h1>
     <p class="meta">
       商品池 <strong>上市</strong> + <strong>上櫃</strong> 及 <strong>加權指數</strong> · 週期 <strong>{tf_labels}</strong> ·
@@ -695,6 +788,181 @@ def render_html(payload: dict) -> str:
     </div>
   </div>
 {embed_js}{filter_script}{read_static("report-chart-modal.html")}
+</body>
+</html>
+"""
+
+
+def render_watchlist_html(payload: dict, items: list[dict]) -> str:
+    gen = html.escape(payload["generated_at"])
+    hit_n = sum(1 for x in items if x.get("hasHit"))
+    chart_n = sum(1 for x in items if x.get("hasChart"))
+
+    def wl_row(i: int, item: dict) -> str:
+        sym = item["symbol"]
+        grp = item["group"]
+        name = item.get("name") or sym
+        pool = group_label(str(grp)) if grp != "?" else "—"
+        sigs = item.get("signals") or []
+        if sigs:
+            sig_txt = " · ".join(html.escape(s) for s in sigs[:4])
+            if len(sigs) > 4:
+                sig_txt += " …"
+        elif item.get("error"):
+            sig_txt = f'<span class="muted">{html.escape(str(item["error"]))}</span>'
+        else:
+            sig_txt = '<span class="muted">—</span>'
+        chart_txt = "有" if item.get("hasChart") else "—"
+        attrs = (
+            f'data-symbol="{html.escape(sym, quote=True)}" '
+            f'data-group="{html.escape(str(grp), quote=True)}" '
+            f'data-name="{html.escape(name, quote=True)}" '
+            f'data-tf="1d" data-kind="watchlist"'
+        )
+        btn = (
+            f'<button type="button" class="sym-btn" {attrs} title="開啟蠟燭圖">'
+            f"<code>{html.escape(sym)}</code></button>"
+        )
+        return (
+            f'<tr data-symbol="{html.escape(sym, quote=True)}" '
+            f'data-group="{html.escape(str(grp), quote=True)}" data-timeframe="1d">'
+            f'<td class="num">{i}</td>'
+            f"<td>{html.escape(pool)}</td>"
+            f"<td>{btn}</td>"
+            f"<td>{html.escape(name)}</td>"
+            f"<td>{sig_txt}</td>"
+            f'<td class="num">{chart_txt}</td>'
+            "</tr>"
+        )
+
+    rows = "\n".join(wl_row(i + 1, item) for i, item in enumerate(items))
+    catalog = [
+        {
+            "group": x["group"],
+            "symbol": x["symbol"],
+            "name": x.get("name") or x["symbol"],
+            "timeframe": "1d",
+            "hasHit": bool(x.get("hasHit")),
+            "hasChart": bool(x.get("hasChart")),
+        }
+        for x in items
+        if x.get("hasChart")
+    ]
+    embed_js = (
+        "<script>window.CHART_PACKS = {};"
+        + "window.SYMBOL_CATALOG = "
+        + json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))
+        + ";window.WATCHLISTS = "
+        + json.dumps({WATCHLIST_NAME: WATCHLIST_SYMBOLS}, ensure_ascii=False, separators=(",", ":"))
+        + ";</script>\n"
+    )
+    wl_script = read_static("report-watchlist.html")
+    chart_script = read_static("report-chart-modal.html")
+
+    return f"""<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="3600" />
+  <title>台股 {html.escape(WATCHLIST_NAME)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {{
+      --bg: #000; --panel: rgba(8,12,20,.58); --border: rgba(0,255,213,.18);
+      --text: #eefdfb; --muted: #7a93a8; --primary: #00f0c8;
+    }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      background: #000; color: var(--text); min-height: 100vh; padding: 28px 18px 48px;
+    }}
+    .wrap {{ max-width: 1100px; margin: 0 auto; }}
+    h1 {{ font-size: 1.5rem; color: var(--primary); }}
+    .meta {{ color: var(--muted); font-size: .9rem; margin: 8px 0 18px; line-height: 1.5; }}
+    .cards {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }}
+    @media (max-width: 700px) {{ .cards {{ grid-template-columns: 1fr; }} }}
+    .card {{ background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }}
+    .card .lbl {{ font-size: .65rem; color: var(--muted); text-transform: uppercase; }}
+    .card .val {{ font-family: "JetBrains Mono", monospace; font-size: 1.15rem; font-weight: 700; margin-top: 4px; }}
+    .page-nav {{ display: flex; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }}
+    .page-nav a {{
+      font-size: .85rem; padding: 8px 14px; border-radius: 999px; text-decoration: none;
+      border: 1px solid var(--border); color: var(--muted);
+    }}
+    .page-nav a.active {{
+      color: #04110e; border-color: transparent;
+      background: linear-gradient(135deg, #00f0c8, #00b894);
+    }}
+    .panel {{ background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; overflow-x: auto; }}
+    table {{ width: 100%; border-collapse: collapse; font-size: .84rem; min-width: 640px; }}
+    th, td {{ padding: 9px 12px; text-align: left; border-bottom: 1px solid rgba(0,240,200,.08); }}
+    th {{ color: var(--muted); font-size: .68rem; text-transform: uppercase; }}
+    td.num, th.num {{ text-align: right; font-family: "JetBrains Mono", monospace; }}
+    tbody tr:hover {{ background: rgba(0,240,200,.04); }}
+    code {{ font-family: "JetBrains Mono", monospace; color: var(--primary); }}
+    .sym-btn {{ background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }}
+    .sym-btn:hover code {{ text-decoration: underline; }}
+    .muted {{ color: var(--muted); }}
+    footer {{ margin-top: 28px; color: var(--muted); font-size: .75rem; }}
+    a {{ color: var(--primary); }}
+    .modal {{
+      position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;
+      padding: 16px; background: rgba(0,0,0,.62); opacity: 0; pointer-events: none; transition: opacity .2s;
+    }}
+    .modal.open {{ opacity: 1; pointer-events: auto; }}
+    .modal-panel {{
+      width: min(1100px, 100%); height: min(720px, 92vh);
+      background: rgba(8,12,20,.9); border: 1px solid var(--border); border-radius: 16px;
+      display: flex; flex-direction: column; overflow: hidden;
+    }}
+    .modal-head {{ display: flex; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); }}
+    .modal-close {{ width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }}
+    .modal-chart {{ flex: 1; min-height: 0; position: relative; background: #000; }}
+    .modal-chart #lwc {{ position: absolute; inset: 0; width: 100%; height: 100%; }}
+    .modal-status {{ position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    {page_nav_html("watchlist")}
+    <h1>台股 · {html.escape(WATCHLIST_NAME)}</h1>
+    <p class="meta">
+      共 {len(items)} 檔 · 有信號 {hit_n} · 有圖表 {chart_n} · 更新 {gen}
+    </p>
+    <div class="cards">
+      <div class="card"><div class="lbl">自選檔數</div><div class="val">{len(items)}</div></div>
+      <div class="card"><div class="lbl">有信號</div><div class="val">{hit_n}</div></div>
+      <div class="card"><div class="lbl">有 Chart Pack</div><div class="val">{chart_n}</div></div>
+    </div>
+    <div class="panel" id="watchlistTable">
+      <table>
+        <thead><tr>
+          <th class="num">#</th><th>池</th><th>代碼</th><th>名稱</th><th>信號</th><th class="num">圖表</th>
+        </tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+    </div>
+    <footer>每小時自動更新 · <a href="index.html">回 Alerts</a> · <a href="latest.json">latest.json</a></footer>
+  </div>
+
+  <div id="chart-modal" class="modal" hidden aria-hidden="true">
+    <div class="modal-panel" role="dialog">
+      <div class="modal-head">
+        <div>
+          <div id="chart-title" class="modal-title">Chart</div>
+          <div id="chart-sub" class="modal-sub"></div>
+        </div>
+        <button type="button" class="modal-close" id="chart-close" aria-label="關閉">×</button>
+      </div>
+      <div class="modal-chart" id="chart-body">
+        <div class="modal-status" id="chart-status">載入中…</div>
+        <div id="lwc" hidden></div>
+        <iframe id="tv-frame" title="TradingView chart" hidden></iframe>
+      </div>
+    </div>
+  </div>
+{embed_js}{wl_script}{chart_script}
 </body>
 </html>
 """
@@ -786,6 +1054,7 @@ def main() -> int:
         "hits": hits,
         "results": slim_results,
         "charts": charts,
+        "watchlist": build_watchlist_items(WATCHLIST_SYMBOLS, slim_results, hits, charts),
     }
 
     with open(os.path.join(OUT_DIR, "latest.json"), "w", encoding="utf-8") as f:
@@ -800,9 +1069,12 @@ def main() -> int:
         )
 
     page = render_html(payload)
+    wl_page = render_watchlist_html(payload, payload["watchlist"])
     for name in ("latest.html", "index.html"):
         with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8") as f:
             f.write(page)
+    with open(os.path.join(OUT_DIR, "watchlist.html"), "w", encoding="utf-8") as f:
+        f.write(wl_page)
 
     errs = [r for r in slim_results if r.get("error")]
     if errs:
