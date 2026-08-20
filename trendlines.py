@@ -3,7 +3,7 @@
 Touch points = strict pivots on the line plus local extrema (wing 2) whose
 wick reaches or nears the line (2%). Sharp up/down bars that break the line are
 not touch points. Line construction ignores wick exceed (body-only pierce
-rules). Up to two lines per side: the stronger line may be historical (no
+rules). Up to one line per side: the stronger line may be historical (no
 valid_to_current); the second must stay valid to the latest bar. Drawing
 extends to the latest bar; already-broken lines do not emit 1–10 bar exceed
 alerts. When multiple anchor pivots fall within K+6 bars, keep the line with
@@ -20,8 +20,8 @@ PIVOT_HIGH = 4
 PIVOT_LOW = 4
 MAX_LOOKBACK = 2000
 BEST_TOUCH_LOOKBACK = 200
-MAX_RESISTANCE = 2
-MAX_SUPPORT = 2
+MAX_RESISTANCE = 1
+MAX_SUPPORT = 1
 MAX_LINES_PER_PIVOT = 1
 MIN_LINE_PIVOTS = 3
 PIVOT_LINE_TOL_PCT = 0.002
