@@ -3,11 +3,10 @@
 Touch points = strict pivots on the line plus local extrema (wing 2) whose
 wick reaches or nears the line (2%). Sharp up/down bars that break the line are
 not touch points. Line construction ignores wick exceed (body-only pierce
-rules). Up to one line per side: the stronger line may be historical (no
-valid_to_current); the second must stay valid to the latest bar. Drawing
-extends to the latest bar; already-broken lines do not emit 1–10 bar exceed
-alerts. When multiple anchor pivots fall within K+6 bars, keep the line with
-the most touches. Sharp pierce grace unchanged.
+rules). Up to one line per side; the line must stay valid to the latest bar
+(valid_to_current). Drawing extends to the latest bar; already-broken lines
+do not emit 1–10 bar exceed alerts. When multiple anchor pivots fall within
+K+6 bars, keep the line with the most touches. Sharp pierce grace unchanged.
 """
 
 from __future__ import annotations
@@ -356,16 +355,14 @@ def build_auto_trend_lines(candles: list[dict]) -> list[dict]:
                 used.add(c["p1"]["index"])
                 added += 1
 
-        try_pick(require_current=False, max_add=1)
-        if limit > 1:
-            try_pick(require_current=True, max_add=1)
+        try_pick(require_current=True, max_add=limit)
         return picked
 
     return collect(piv_high, True) + collect(piv_low, False)
 
 
 def build_best_touch_line(candles: list[dict]) -> dict | None:
-    """Single best-touch line in the latest BEST_TOUCH_LOOKBACK bars (broken OK)."""
+    """Single max-touch line in the latest 200 daily bars (broken OK; drawn blue)."""
     start_idx = max(0, len(candles) - BEST_TOUCH_LOOKBACK)
     slice_c = candles[start_idx:]
     offset = start_idx

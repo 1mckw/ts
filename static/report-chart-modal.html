@@ -166,7 +166,9 @@
   }
 
   const LINE_W = 1;
-  const BEST_TOUCH_COLOR = "rgba(59,130,246,0.95)";
+  const SUPPORT_COLOR = "34,197,94";      // 上升支撐 · 綠
+  const RESISTANCE_COLOR = "239,68,68";   // 下降阻力 · 紅
+  const BEST_TOUCH_COLOR = "rgba(59,130,246,0.95)"; // 200D 最多觸碰 · 藍
 
   function drawSegment(t0, p0, t1, p1, color, width, style) {
     if (t0 == null || t1 == null || t0 === t1) return;
@@ -263,12 +265,12 @@
       const touchN = Number(line.pivot_count) || 0;
       const weaker = !line.invalidated && maxTouch > 0 && touchN < maxTouch;
       const alpha = line.invalidated ? 0.3 : weaker ? 0.5 : 0.95;
-      const color = line.type === "resistance"
-        ? `rgba(239,68,68,${alpha})`
-        : `rgba(34,197,94,${alpha})`;
+      const rgb = line.type === "resistance" ? RESISTANCE_COLOR : SUPPORT_COLOR;
+      const color = `rgba(${rgb},${alpha})`;
       drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, LINE_W);
     });
 
+    // 200D 最多觸碰線（藍）— 最後畫，疊在綠/紅之上
     const bestTouch = pack.best_touch_line;
     if (bestTouch) {
       drawSegment(
@@ -316,6 +318,13 @@
     if (dr.length) bits.push(`DR ${drOn}/${dr.length} 有效`);
     else bits.push("DR 無");
     bits.push(`趨勢線 ${tlValid}/${lines.length}`);
+    const best = pack.best_touch_line;
+    if (best) {
+      const n = Number(best.pivot_count) || 0;
+      bits.push(`藍線200D ${n}觸`);
+    } else {
+      bits.push("藍線200D 無");
+    }
     return bits.join(" · ");
   }
 
@@ -365,10 +374,17 @@
       } else {
         const rayN = pack && pack.rays ? pack.rays.length : 0;
         const tlN = pack && pack.trend_lines ? pack.trend_lines.length : 0;
+        const bestN =
+          pack && pack.best_touch_line
+            ? Number(pack.best_touch_line.pivot_count) || 0
+            : null;
         subEl.innerHTML =
           `${escapeHtml(name)} · ${escapeHtml(group)} · ${escapeHtml(typeLabel(type, kind))}` +
           (level ? ` · Level <strong>${escapeHtml(fmtLevel(level))}</strong>` : "") +
-          (pack ? ` · AR/DR ${rayN} · 趨勢線 ${tlN}` : "");
+          (pack
+            ? ` · AR/DR ${rayN} · 趨勢線 ${tlN}` +
+              (bestN != null ? ` · 藍線200D ${bestN}觸` : "")
+            : "");
       }
 
       if (pack && pack.candles && pack.candles.length) {
