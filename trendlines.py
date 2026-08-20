@@ -3,10 +3,11 @@
 Touch points = strict pivots on the line plus local extrema (wing 2) whose
 wick reaches or nears the line (2%). Sharp up/down bars that break the line are
 not touch points. Line construction ignores wick exceed (body-only pierce
-rules). Up to one line per side; the line must stay valid to the latest bar
-(valid_to_current). Drawing extends to the latest bar; already-broken lines
-do not emit 1–10 bar exceed alerts. When multiple anchor pivots fall within
-K+6 bars, keep the line with the most touches. Sharp pierce grace unchanged.
+rules). Up to one line per side; the line must stay valid through 5 bars
+before the latest K (valid_to_current). Drawing extends to the latest bar;
+already-broken lines do not emit 1–10 bar exceed alerts. When multiple
+anchor pivots fall within K+6 bars, keep the line with the most touches.
+Sharp pierce grace unchanged.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ LOCAL_EXTREME_WING = 2
 MIN_TOUCH_BAR_GAP = 3
 NEARBY_PIVOT_LOOKAHEAD = 6  # from pivot K through K+6 bars
 SHARP_PIERCE_GRACE_BARS = 2
+VALID_TO_CURRENT_LAG_BARS = 5  # require validity through latest K − 5
 TREND_EXCEED_MIN_BARS = 1
 TREND_EXCEED_MAX_BARS = 10
 TREND_EXCEED_BARS = TREND_EXCEED_MAX_BARS  # legacy alias = max window
@@ -149,13 +151,16 @@ def validate_line_body_segment(
 
 
 def find_line_break_index(candles: list[dict], line: dict) -> int | None:
-    """First bar where body rules fail, or None if the line is still valid."""
+    """First bar where body rules fail, or None if still valid through latest−lag."""
     p1 = line["p1"]
     resistance = line["type"] == "resistance"
     slope = line["slope"]
+    end_i = len(candles) - 1 - VALID_TO_CURRENT_LAG_BARS
+    if end_i <= p1["index"]:
+        return None
     in_grace = False
     after_pierce = 0
-    for i in range(p1["index"] + 1, len(candles)):
+    for i in range(p1["index"] + 1, end_i + 1):
         lp = line_price(p1, slope, i)
         if not body_crosses(candles, i, lp, resistance):
             in_grace = False
@@ -291,9 +296,13 @@ def valid_between_pivots(candles: list[dict], p1: dict, p2: dict, resistance: bo
 
 
 def valid_to_current(candles: list[dict], p1: dict, p2: dict, resistance: bool) -> bool:
+    """True if body rules hold from p2 through the bar 5 before the latest K."""
     slope = (p2["price"] - p1["price"]) / (p2["index"] - p1["index"])
+    end_i = len(candles) - 1 - VALID_TO_CURRENT_LAG_BARS
+    if end_i <= p2["index"]:
+        return True
     return validate_line_body_segment(
-        candles, p1, slope, p2["index"] + 1, len(candles) - 1, resistance
+        candles, p1, slope, p2["index"] + 1, end_i, resistance
     )
 
 
