@@ -33,6 +33,8 @@ TIMEFRAMES: dict[str, dict[str, Any]] = {
         "late_touch_window": 20,
         "late_touch_lookback": 40,
         "late_touch_min_display": 60,
+        "near_miss_min_bars": 60,
+        "near_miss_lookback": 200,
         "label": "1D",
     },
 }
@@ -54,6 +56,8 @@ collect_late_ar_dr_near_misses = ardr.collect_late_ar_dr_near_misses
 LATE_TOUCH_LOOKBACK_BARS = ardr.LATE_TOUCH_LOOKBACK_BARS
 LATE_TOUCH_MIN_BARS = ardr.LATE_TOUCH_MIN_BARS
 LATE_TOUCH_MIN_DISPLAY_BARS = ardr.LATE_TOUCH_MIN_DISPLAY_BARS
+NEAR_MISS_MIN_BARS = ardr.NEAR_MISS_MIN_BARS
+NEAR_MISS_LOOKBACK_BARS = ardr.NEAR_MISS_LOOKBACK_BARS
 fresh_range = ardr.fresh_range
 
 TREND_EXCEED_MIN_BARS = tl.TREND_EXCEED_MIN_BARS
@@ -317,6 +321,8 @@ def scan_job(job: dict[str, str]) -> dict:
     late_touch_window = int(cfg.get("late_touch_window") or LATE_TOUCH_MIN_BARS)
     lookback = int(cfg.get("late_touch_lookback") or LATE_TOUCH_LOOKBACK_BARS)
     late_min_display = int(cfg.get("late_touch_min_display") or LATE_TOUCH_MIN_DISPLAY_BARS)
+    near_min_bars = int(cfg.get("near_miss_min_bars") or NEAR_MISS_MIN_BARS)
+    near_lookback = int(cfg.get("near_miss_lookback") or NEAR_MISS_LOOKBACK_BARS)
     try:
         candles = with_retries(lambda: fetch_yahoo(yahoo, timeframe))
         signals = detect_signals(candles)
@@ -324,7 +330,7 @@ def scan_job(job: dict[str, str]) -> dict:
         late_lb = collect_late_ar_dr_touches_in_lookback(
             candles, signals, late_touch_window, lookback, late_min_display
         )
-        near = collect_late_ar_dr_near_misses(candles, signals, touch_window)
+        near = collect_late_ar_dr_near_misses(candles, signals, near_min_bars, near_lookback)
         lines = build_auto_trend_lines(candles)
         trend = collect_trend_touches(candles, lines)
         exceed = collect_trend_exceeds(candles, lines)
@@ -489,6 +495,7 @@ def render_html(payload: dict) -> str:
     ar_dr_late = [h for h in hits if h["kind"] == "ar_dr_late_touch"]
     ar_dr_late.sort(key=lambda h: int(h.get("bars_after_signal") or 0), reverse=True)
     ar_near = [h for h in hits if h["kind"] == "ar_dr_near"]
+    ar_near.sort(key=lambda h: int(h.get("bars_after_signal") or 0), reverse=True)
     trend = [h for h in hits if h["kind"] == "trend_touch"]
     exceed = [h for h in hits if h["kind"] == "trend_exceed"]
     c = payload["counts"]
@@ -748,10 +755,10 @@ def render_html(payload: dict) -> str:
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="ar_dr_late">{rows(ar_dr_late, "目前無符合條件的晚觸碰（根數 ≥ 60）", 8, row_ar_dr)}</tbody></table></div>
 
-    <h2>AR / DR 接近未觸</h2>
+    <h2>AR / DR 接近未觸（200 根日 K 內 · 根數 ≥ 60 · 誤差 0～1%）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">差距</th><th class="num">根數</th><th>時間</th>
-    </tr></thead><tbody data-section="ar_near">{rows(ar_near, "目前無接近未觸", 9, row_ar_near)}</tbody></table></div>
+    </tr></thead><tbody data-section="ar_near">{rows(ar_near, "目前無符合條件的接近未觸（200 根內 · 根數 ≥ 60）", 9, row_ar_near)}</tbody></table></div>
 
     <h2>趨勢線觸碰</h2>
     <div class="panel"><table><thead><tr>
