@@ -31,7 +31,7 @@ TIMEFRAMES: dict[str, dict[str, Any]] = {
         "chart_bars": 320,
         "touch_window": 10,
         "late_touch_window": 20,
-        "late_touch_lookback": 20,
+        "late_touch_lookback": 10,
         "late_touch_min_display": 60,
         "near_miss_min_bars": 60,
         "near_miss_lookback": 200,
@@ -728,7 +728,7 @@ def render_html(payload: dict) -> str:
     <div class="cards">
       <div class="card"><div class="lbl">掃描 OK</div><div class="val">{c['ok']}/{c['jobs']}</div></div>
       <div class="card"><div class="lbl">AR/DR 觸碰</div><div class="val">{c['ar_dr_touch']}</div></div>
-      <div class="card"><div class="lbl">AR/DR 晚觸20</div><div class="val">{c['ar_dr_late_touch']}</div></div>
+      <div class="card"><div class="lbl">AR/DR 晚觸10</div><div class="val">{c['ar_dr_late_touch']}</div></div>
       <div class="card"><div class="lbl">AR/DR 接近</div><div class="val">{c['ar_dr_near']}</div></div>
       <div class="card"><div class="lbl">趨勢線觸碰</div><div class="val">{c['trend_touch']}</div></div>
       <div class="card"><div class="lbl">趨勢線超出</div><div class="val">{c['trend_exceed']}</div></div>
@@ -750,10 +750,10 @@ def render_html(payload: dict) -> str:
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="ar_dr">{rows(ar_dr, "目前無 AR/DR 觸碰", 8, row_ar_dr)}</tbody></table></div>
 
-    <h2>AR / DR 晚觸碰（20 根日 K 內曾觸碰 · 超過 20 根後 · 根數 ≥ 60）</h2>
+    <h2>AR / DR 晚觸碰（10 根日 K 內曾觸碰 · 超過 20 根後 · 根數 ≥ 60）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
-    </tr></thead><tbody data-section="ar_dr_late">{rows(ar_dr_late, "目前無符合條件的晚觸碰（20 根內 · 根數 ≥ 60）", 8, row_ar_dr)}</tbody></table></div>
+    </tr></thead><tbody data-section="ar_dr_late">{rows(ar_dr_late, "目前無符合條件的晚觸碰（10 根內 · 根數 ≥ 60）", 8, row_ar_dr)}</tbody></table></div>
 
     <h2>AR / DR 接近未觸（200 根日 K 內 · 根數 ≥ 60 · 誤差 0～1%）</h2>
     <div class="panel"><table><thead><tr>
