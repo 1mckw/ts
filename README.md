@@ -4,7 +4,8 @@ GitHub Pages 每小時掃描 **台股上市、上櫃** 及 **加權指數** 日 
 
 ## 線上報告
 
-- HTML：https://1mckw.github.io/ts/
+- 上市：https://1mckw.github.io/ts/
+- 上櫃：https://1mckw.github.io/ts/tpex.html
 - 自選：https://1mckw.github.io/ts/watchlist.html
 - JSON：`/latest.json`
 

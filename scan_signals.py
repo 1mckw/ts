@@ -410,14 +410,42 @@ def build_symbol_catalog(results: list[dict], charts: dict) -> list[dict]:
 
 
 def page_nav_html(active: str) -> str:
-    alerts_cls = "active" if active == "alerts" else ""
-    wl_cls = "active" if active == "watchlist" else ""
-    return (
-        f'<nav class="page-nav">'
-        f'<a href="index.html" class="{alerts_cls}">Alerts</a>'
-        f'<a href="watchlist.html" class="{wl_cls}">{html.escape(WATCHLIST_NAME)}</a>'
-        f"</nav>"
+    links = (
+        ("twse", "index.html", "上市"),
+        ("tpex", "tpex.html", "上櫃"),
+        ("watchlist", "watchlist.html", WATCHLIST_NAME),
     )
+    parts = ['<nav class="page-nav">']
+    for key, href, label in links:
+        cls = "active" if active == key else ""
+        parts.append(f'<a href="{href}" class="{cls}">{html.escape(label)}</a>')
+    parts.append("</nav>")
+    return "".join(parts)
+
+
+PAGE_POOLS: dict[str, dict[str, Any]] = {
+    "twse": {
+        "groups": frozenset({"twse", "index"}),
+        "title": "上市",
+        "pool_label": "上市 + 加權指數",
+    },
+    "tpex": {
+        "groups": frozenset({"tpex"}),
+        "title": "上櫃",
+        "pool_label": "上櫃",
+    },
+}
+
+
+def hit_counts(hits: list[dict]) -> dict[str, int]:
+    return {
+        "ar_dr_touch": sum(1 for h in hits if h["kind"] == "ar_dr_touch"),
+        "ar_dr_late_touch": sum(1 for h in hits if h["kind"] == "ar_dr_late_touch"),
+        "ar_dr_near": sum(1 for h in hits if h["kind"] == "ar_dr_near"),
+        "trend_touch": sum(1 for h in hits if h["kind"] == "trend_touch"),
+        "trend_exceed": sum(1 for h in hits if h["kind"] == "trend_exceed"),
+        "hits": len(hits),
+    }
 
 
 def build_watchlist_items(
@@ -489,8 +517,12 @@ def build_watchlist_items(
     return items
 
 
-def render_html(payload: dict) -> str:
-    hits = payload["hits"]
+def render_html(payload: dict, pool: str = "twse") -> str:
+    cfg = PAGE_POOLS[pool]
+    groups = cfg["groups"]
+    all_hits = payload["hits"]
+    hits = [h for h in all_hits if h.get("group") in groups]
+    results = [r for r in (payload.get("results") or []) if r.get("group") in groups]
     ar_dr = [h for h in hits if h["kind"] == "ar_dr_touch"]
     ar_dr_late = [h for h in hits if h["kind"] == "ar_dr_late_touch"]
     ar_dr_late.sort(key=lambda h: int(h.get("bars_after_signal") or 0), reverse=True)
@@ -498,9 +530,13 @@ def render_html(payload: dict) -> str:
     ar_near.sort(key=lambda h: int(h.get("bars_after_signal") or 0), reverse=True)
     trend = [h for h in hits if h["kind"] == "trend_touch"]
     exceed = [h for h in hits if h["kind"] == "trend_exceed"]
-    c = payload["counts"]
+    hc = hit_counts(hits)
+    ok = sum(1 for r in results if not r.get("error"))
+    jobs_n = len(results)
     u = payload["universe"]
     gen = html.escape(payload["generated_at"])
+    page_title = html.escape(str(cfg["title"]))
+    pool_label = html.escape(str(cfg["pool_label"]))
 
     def sym_btn(h: dict) -> str:
         sym = str(h.get("symbol", ""))
@@ -606,7 +642,7 @@ def render_html(payload: dict) -> str:
             "</tr>"
         )
 
-    catalog = build_symbol_catalog(payload.get("results") or [], payload.get("charts") or {})
+    catalog = build_symbol_catalog(results, payload.get("charts") or {})
     embed_js = (
         "<script>window.CHART_PACKS = {};"
         + "window.SYMBOL_CATALOG = "
@@ -625,7 +661,7 @@ def render_html(payload: dict) -> str:
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="refresh" content="3600" />
-  <title>台股 Touch Alerts</title>
+  <title>台股 · {page_title} Alerts</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {{
@@ -719,25 +755,19 @@ def render_html(payload: dict) -> str:
 </head>
 <body>
   <div class="wrap">
-    {page_nav_html("alerts")}
-    <h1>台股 · AR/DR &amp; 趨勢線 Alerts</h1>
+    {page_nav_html(pool)}
+    <h1>台股 · {page_title} · AR/DR &amp; 趨勢線</h1>
     <p class="meta">
-      商品池 <strong>上市</strong> + <strong>上櫃</strong> 及 <strong>加權指數</strong> · 週期 <strong>{tf_labels}</strong> ·
-      掃描 {u['total']} 檔 × {u['timeframes']} 週期 = {u['jobs']} jobs · 更新 {gen}
+      商品池 <strong>{pool_label}</strong> · 週期 <strong>{tf_labels}</strong> ·
+      本頁 {jobs_n} 檔 · 全池掃描 {u['total']} 檔 × {u['timeframes']} 週期 = {u['jobs']} jobs · 更新 {gen}
     </p>
     <div class="cards">
-      <div class="card"><div class="lbl">掃描 OK</div><div class="val">{c['ok']}/{c['jobs']}</div></div>
-      <div class="card"><div class="lbl">AR/DR 觸碰</div><div class="val">{c['ar_dr_touch']}</div></div>
-      <div class="card"><div class="lbl">AR/DR 晚觸10</div><div class="val">{c['ar_dr_late_touch']}</div></div>
-      <div class="card"><div class="lbl">AR/DR 接近</div><div class="val">{c['ar_dr_near']}</div></div>
-      <div class="card"><div class="lbl">趨勢線觸碰</div><div class="val">{c['trend_touch']}</div></div>
-      <div class="card"><div class="lbl">趨勢線超出</div><div class="val">{c['trend_exceed']}</div></div>
-    </div>
-    <div class="pool-filters" id="poolFilters">
-      <button type="button" data-pool="all" class="active">全部池</button>
-      <button type="button" data-pool="index">指數</button>
-      <button type="button" data-pool="twse">上市</button>
-      <button type="button" data-pool="tpex">上櫃</button>
+      <div class="card"><div class="lbl">本頁 OK</div><div class="val">{ok}/{jobs_n}</div></div>
+      <div class="card"><div class="lbl">AR/DR 觸碰</div><div class="val">{hc['ar_dr_touch']}</div></div>
+      <div class="card"><div class="lbl">AR/DR 晚觸10</div><div class="val">{hc['ar_dr_late_touch']}</div></div>
+      <div class="card"><div class="lbl">AR/DR 接近</div><div class="val">{hc['ar_dr_near']}</div></div>
+      <div class="card"><div class="lbl">趨勢線觸碰</div><div class="val">{hc['trend_touch']}</div></div>
+      <div class="card"><div class="lbl">趨勢線超出</div><div class="val">{hc['trend_exceed']}</div></div>
     </div>
 
     <h2>趨勢線超出（最新 {TREND_EXCEED_MIN_BARS}–{TREND_EXCEED_MAX_BARS} 根）</h2>
@@ -953,7 +983,7 @@ def render_watchlist_html(payload: dict, items: list[dict]) -> str:
         <tbody>{rows}</tbody>
       </table>
     </div>
-    <footer>每小時自動更新 · <a href="index.html">回 Alerts</a> · <a href="latest.json">latest.json</a></footer>
+    <footer>每小時自動更新 · <a href="index.html">回上市</a> · <a href="latest.json">latest.json</a></footer>
   </div>
 
   <div id="chart-modal" class="modal" hidden aria-hidden="true">
@@ -1078,11 +1108,14 @@ def main() -> int:
             separators=(",", ":"),
         )
 
-    page = render_html(payload)
+    twse_page = render_html(payload, "twse")
+    tpex_page = render_html(payload, "tpex")
     wl_page = render_watchlist_html(payload, payload["watchlist"])
     for name in ("latest.html", "index.html"):
         with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8") as f:
-            f.write(page)
+            f.write(twse_page)
+    with open(os.path.join(OUT_DIR, "tpex.html"), "w", encoding="utf-8") as f:
+        f.write(tpex_page)
     with open(os.path.join(OUT_DIR, "watchlist.html"), "w", encoding="utf-8") as f:
         f.write(wl_page)
 
