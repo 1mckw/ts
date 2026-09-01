@@ -296,8 +296,8 @@
     },
     {
       "kind": "ar_dr_late_touch",
-      "label": "DR 晚觸碰",
-      "type": "DR",
+      "label": "AD 晚觸碰",
+      "type": "AD",
       "wick": "lower",
       "signal_time": 1694394000,
       "signal_index": 78,
@@ -385,8 +385,8 @@
     },
     {
       "kind": "ar_dr_near",
-      "label": "DR 接近未觸",
-      "type": "DR",
+      "label": "AD 接近未觸",
+      "type": "AD",
       "wick": "lower",
       "signal_time": 1754442000,
       "signal_index": 538,
@@ -20028,8 +20028,8 @@
       "events": [
         {
           "kind": "ar_dr_late_touch",
-          "label": "DR 晚觸碰",
-          "type": "DR",
+          "label": "AD 晚觸碰",
+          "type": "AD",
           "wick": "lower",
           "signal_time": 1694394000,
           "signal_index": 78,
@@ -23329,8 +23329,8 @@
       "events": [
         {
           "kind": "ar_dr_near",
-          "label": "DR 接近未觸",
-          "type": "DR",
+          "label": "AD 接近未觸",
+          "type": "AD",
           "wick": "lower",
           "signal_time": 1754442000,
           "signal_index": 538,
@@ -23430,7 +23430,7 @@
       "name": "中砂",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23440,7 +23440,7 @@
       "name": "閎康",
       "timeframe": "1d",
       "hasHit": true,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [
         "阻力趨勢線觸碰"
       ],
@@ -23452,7 +23452,7 @@
       "name": "力成",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23462,7 +23462,7 @@
       "name": "日月光投控",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23472,7 +23472,7 @@
       "name": "世界",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23482,7 +23482,7 @@
       "name": "台積電",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23492,7 +23492,7 @@
       "name": "聯電",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23502,7 +23502,7 @@
       "name": "信驊",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23512,7 +23512,7 @@
       "name": "聯詠",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23522,7 +23522,7 @@
       "name": "聯發科",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23532,7 +23532,7 @@
       "name": "瑞昱",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23542,7 +23542,7 @@
       "name": "來億-KY",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23552,7 +23552,7 @@
       "name": "志強-KY",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23562,7 +23562,7 @@
       "name": "國統",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23572,7 +23572,7 @@
       "name": "衛司特",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23582,7 +23582,7 @@
       "name": "桂盟",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23592,7 +23592,7 @@
       "name": "美利達",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23602,7 +23602,7 @@
       "name": "啟碁",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23612,7 +23612,7 @@
       "name": "中磊",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23622,7 +23622,7 @@
       "name": "正文",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23632,7 +23632,7 @@
       "name": "智易",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23642,7 +23642,7 @@
       "name": "金居",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23652,7 +23652,7 @@
       "name": "鴻海",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23662,7 +23662,7 @@
       "name": "群聯",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23672,7 +23672,7 @@
       "name": "愛普*",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23682,7 +23682,7 @@
       "name": "威剛",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23692,7 +23692,7 @@
       "name": "南亞科",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23702,7 +23702,7 @@
       "name": "華邦電",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23712,7 +23712,7 @@
       "name": "旺宏",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23722,7 +23722,7 @@
       "name": "宏捷科",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23732,7 +23732,7 @@
       "name": "穩懋",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23742,7 +23742,7 @@
       "name": "聯亞",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23752,7 +23752,7 @@
       "name": "全新",
       "timeframe": "1d",
       "hasHit": true,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [
         "阻力趨勢線超出"
       ],
@@ -23764,7 +23764,7 @@
       "name": "台燿",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23774,7 +23774,7 @@
       "name": "台光電",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23784,7 +23784,7 @@
       "name": "全訊",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23794,7 +23794,7 @@
       "name": "豐達科",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23804,7 +23804,7 @@
       "name": "長榮航太",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23814,7 +23814,7 @@
       "name": "朋程",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23824,7 +23824,7 @@
       "name": "同欣電",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23834,7 +23834,7 @@
       "name": "順德",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23844,7 +23844,7 @@
       "name": "精成科",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23854,7 +23854,7 @@
       "name": "臻鼎-KY",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23864,7 +23864,7 @@
       "name": "定穎投控",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23874,7 +23874,7 @@
       "name": "松川精密",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23884,7 +23884,7 @@
       "name": "長廣",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23894,7 +23894,7 @@
       "name": "辛耘",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23904,7 +23904,7 @@
       "name": "富鼎",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23914,7 +23914,7 @@
       "name": "力智",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23924,7 +23924,7 @@
       "name": "捷敏-KY",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23934,7 +23934,7 @@
       "name": "敘豐",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23944,7 +23944,7 @@
       "name": "揚博",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23954,7 +23954,7 @@
       "name": "德微",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23964,7 +23964,7 @@
       "name": "金山電",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23974,7 +23974,7 @@
       "name": "新盛力",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23984,7 +23984,7 @@
       "name": "家碩",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -23994,7 +23994,7 @@
       "name": "中碳",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24004,7 +24004,7 @@
       "name": "禾伸堂",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24014,7 +24014,7 @@
       "name": "立隆電",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24024,7 +24024,7 @@
       "name": "漢唐",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24034,7 +24034,7 @@
       "name": "兆聯實業",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24044,7 +24044,7 @@
       "name": "環宇-KY",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24064,7 +24064,7 @@
       "name": "帆宣",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24074,7 +24074,7 @@
       "name": "鈺邦",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24084,7 +24084,7 @@
       "name": "中化控股",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24094,7 +24094,7 @@
       "name": "欣興",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24104,7 +24104,7 @@
       "name": "華通",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24114,7 +24114,7 @@
       "name": "勤誠",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24124,7 +24124,7 @@
       "name": "富世達",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24134,7 +24134,7 @@
       "name": "嘉澤",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24144,7 +24144,7 @@
       "name": "奇鋐",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24154,7 +24154,7 @@
       "name": "台達電",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24164,7 +24164,7 @@
       "name": "光寶科",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24174,7 +24174,7 @@
       "name": "川湖",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24184,7 +24184,7 @@
       "name": "廣達",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },
@@ -24194,7 +24194,7 @@
       "name": "超豐",
       "timeframe": "1d",
       "hasHit": false,
-      "hasChart": true,
+      "hasChart": false,
       "signals": [],
       "error": null
     },

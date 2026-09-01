@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Taiwan TWSE listed + TPEx OTC stocks — AR/DR + trend-line scanner."""
+"""Taiwan TWSE listed + TPEx OTC stocks — AR/AD + trend-line scanner."""
 
 from __future__ import annotations
 
@@ -78,6 +78,40 @@ KIND_ORDER = {
     "ar_dr_near": 3,
     "trend_touch": 4,
 }
+
+
+def normalize_signal_type(sig_type: str | None) -> str:
+    if sig_type == "DR":
+        return "AD"
+    return sig_type or ""
+
+
+def normalize_hit(hit: dict) -> dict:
+    out = dict(hit)
+    out["type"] = normalize_signal_type(out.get("type"))
+    label = str(out.get("label") or "")
+    if label.startswith("DR "):
+        out["label"] = "AD" + label[2:]
+    return out
+
+
+def normalize_chart_pack(pack: dict | None) -> dict | None:
+    if not pack:
+        return pack
+    out = dict(pack)
+    rays = []
+    for ray in out.get("rays") or []:
+        r = dict(ray)
+        r["type"] = normalize_signal_type(r.get("type"))
+        rays.append(r)
+    out["rays"] = rays
+    return out
+
+
+def normalize_result_events(result: dict) -> dict:
+    out = dict(result)
+    out["events"] = [normalize_hit(ev) for ev in out.get("events") or []]
+    return out
 
 
 def chart_key(group: str, symbol: str, timeframe: str) -> str:
@@ -262,6 +296,7 @@ def build_chart_pack(
                 segs.append({**seg, "t0": clip0, "t1": clip1})
         if segs:
             ray["segments"] = segs
+            ray["type"] = normalize_signal_type(ray.get("type"))
             rays.append(ray)
 
     trend = []
@@ -571,13 +606,14 @@ def render_html(payload: dict, pool: str = "twse") -> str:
         return "\n".join(builder(h) for h in items)
 
     def row_ar_dr(h: dict) -> str:
-        cls = "ar" if h.get("type") == "AR" else "dr"
+        sig_type = normalize_signal_type(h.get("type"))
+        cls = "ar" if sig_type == "AR" else "ad"
         tf = str(h.get("timeframe", "1d"))
         return (
             f'<tr data-symbol="{html.escape(str(h.get("symbol","")), quote=True)}" '
             f'data-group="{html.escape(str(h.get("group","")), quote=True)}" '
             f'data-timeframe="{html.escape(tf, quote=True)}">'
-            f'<td><span class="tag {cls}">{html.escape(str(h.get("type", "")))}</span></td>'
+            f'<td><span class="tag {cls}">{html.escape(sig_type)}</span></td>'
             f"<td>{tf_cell(h)}</td>"
             f"<td>{pool_cell(h)}</td>"
             f"<td>{sym_btn(h)}</td>"
@@ -589,13 +625,14 @@ def render_html(payload: dict, pool: str = "twse") -> str:
         )
 
     def row_ar_near(h: dict) -> str:
-        cls = "ar" if h.get("type") == "AR" else "dr"
+        sig_type = normalize_signal_type(h.get("type"))
+        cls = "ar" if sig_type == "AR" else "ad"
         tf = str(h.get("timeframe", "1d"))
         return (
             f'<tr data-symbol="{html.escape(str(h.get("symbol","")), quote=True)}" '
             f'data-group="{html.escape(str(h.get("group","")), quote=True)}" '
             f'data-timeframe="{html.escape(tf, quote=True)}">'
-            f'<td><span class="tag {cls}">{html.escape(str(h.get("type", "")))}</span></td>'
+            f'<td><span class="tag {cls}">{html.escape(sig_type)}</span></td>'
             f"<td>{tf_cell(h)}</td>"
             f"<td>{pool_cell(h)}</td>"
             f"<td>{sym_btn(h)}</td>"
@@ -667,7 +704,7 @@ def render_html(payload: dict, pool: str = "twse") -> str:
     :root {{
       --bg: #000; --panel: rgba(8,12,20,.58); --border: rgba(0,255,213,.18);
       --text: #eefdfb; --muted: #7a93a8; --primary: #00f0c8;
-      --ar: #00e896; --dr: #ff4d6d;
+      --ar: #00e896; --ad: #ff4d6d;
     }}
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{
@@ -701,8 +738,8 @@ def render_html(payload: dict, pool: str = "twse") -> str:
     code {{ font-family: "JetBrains Mono", monospace; color: var(--primary); }}
     .tag {{ display: inline-block; font-size: .72rem; padding: 2px 7px; border-radius: 5px; font-weight: 700; }}
     .tag.ar {{ background: rgba(0,232,150,.14); color: var(--ar); }}
-    .tag.dr {{ background: rgba(255,77,109,.14); color: var(--dr); }}
-    .tag.resist {{ background: rgba(255,77,109,.14); color: var(--dr); }}
+    .tag.ad {{ background: rgba(255,77,109,.14); color: var(--ad); }}
+    .tag.resist {{ background: rgba(255,77,109,.14); color: var(--ad); }}
     .tag.support {{ background: rgba(0,232,150,.14); color: var(--ar); }}
     .sym-btn {{ background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }}
     .sym-btn:hover code {{ text-decoration: underline; }}
@@ -756,16 +793,16 @@ def render_html(payload: dict, pool: str = "twse") -> str:
 <body>
   <div class="wrap">
     {page_nav_html(pool)}
-    <h1>台股 · {page_title} · AR/DR &amp; 趨勢線</h1>
+    <h1>台股 · {page_title} · AR/AD &amp; 趨勢線</h1>
     <p class="meta">
       商品池 <strong>{pool_label}</strong> · 週期 <strong>{tf_labels}</strong> ·
       本頁 {jobs_n} 檔 · 全池掃描 {u['total']} 檔 × {u['timeframes']} 週期 = {u['jobs']} jobs · 更新 {gen}
     </p>
     <div class="cards">
       <div class="card"><div class="lbl">本頁 OK</div><div class="val">{ok}/{jobs_n}</div></div>
-      <div class="card"><div class="lbl">AR/DR 觸碰</div><div class="val">{hc['ar_dr_touch']}</div></div>
-      <div class="card"><div class="lbl">AR/DR 晚觸10</div><div class="val">{hc['ar_dr_late_touch']}</div></div>
-      <div class="card"><div class="lbl">AR/DR 接近</div><div class="val">{hc['ar_dr_near']}</div></div>
+      <div class="card"><div class="lbl">AR/AD 觸碰</div><div class="val">{hc['ar_dr_touch']}</div></div>
+      <div class="card"><div class="lbl">AR/AD 晚觸10</div><div class="val">{hc['ar_dr_late_touch']}</div></div>
+      <div class="card"><div class="lbl">AR/AD 接近</div><div class="val">{hc['ar_dr_near']}</div></div>
       <div class="card"><div class="lbl">趨勢線觸碰</div><div class="val">{hc['trend_touch']}</div></div>
       <div class="card"><div class="lbl">趨勢線超出</div><div class="val">{hc['trend_exceed']}</div></div>
     </div>
@@ -775,17 +812,17 @@ def render_html(payload: dict, pool: str = "twse") -> str:
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="exceed">{rows(exceed, "目前無超出信號", 8, row_exceed)}</tbody></table></div>
 
-    <h2>AR / DR 觸碰（超過 10 根日 K 後 · 最近 2 根）</h2>
+    <h2>AR / AD 觸碰（超過 10 根日 K 後 · 最近 2 根）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
-    </tr></thead><tbody data-section="ar_dr">{rows(ar_dr, "目前無 AR/DR 觸碰", 8, row_ar_dr)}</tbody></table></div>
+    </tr></thead><tbody data-section="ar_dr">{rows(ar_dr, "目前無 AR/AD 觸碰", 8, row_ar_dr)}</tbody></table></div>
 
-    <h2>AR / DR 晚觸碰（10 根日 K 內曾觸碰 · 超過 20 根後 · 根數 ≥ 60）</h2>
+    <h2>AR / AD 晚觸碰（10 根日 K 內曾觸碰 · 超過 20 根後 · 根數 ≥ 60）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="ar_dr_late">{rows(ar_dr_late, "目前無符合條件的晚觸碰（10 根內 · 根數 ≥ 60）", 8, row_ar_dr)}</tbody></table></div>
 
-    <h2>AR / DR 接近未觸（200 根日 K 內 · 根數 ≥ 60 · 誤差 0～1%）</h2>
+    <h2>AR / AD 接近未觸（200 根日 K 內 · 根數 ≥ 60 · 誤差 0～1%）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">差距</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="ar_near">{rows(ar_near, "目前無符合條件的接近未觸（200 根內 · 根數 ≥ 60）", 9, row_ar_near)}</tbody></table></div>
@@ -1046,10 +1083,14 @@ def main() -> int:
         key = chart_key(g, sym, tf)
         if pack and not r.get("error"):
             # Keep chart for indices, hits, or catalog browsing (all successful scans)
-            charts[key] = pack
-        slim_results.append({k: v for k, v in r.items() if k != "chart"})
+            charts[key] = normalize_chart_pack(pack) or pack
+        slim_results.append(normalize_result_events({k: v for k, v in r.items() if k != "chart"}))
         for ev in r.get("events") or []:
-            hits.append({**ev, "group": g, "symbol": sym, "name": r.get("name"), "timeframe": tf})
+            hits.append(
+                normalize_hit(
+                    {**ev, "group": g, "symbol": sym, "name": r.get("name"), "timeframe": tf}
+                )
+            )
 
     hits.sort(
         key=lambda x: (

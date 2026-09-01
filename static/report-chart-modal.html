@@ -121,9 +121,9 @@
   }
 
   function typeLabel(type, kind) {
-    if (kind === "ar_dr_touch") return type || "AR/DR";
-    if (kind === "ar_dr_late_touch") return (type || "AR/DR") + " 晚觸碰";
-    if (kind === "ar_dr_near") return (type || "AR/DR") + " 接近未觸";
+    if (kind === "ar_dr_touch") return type || "AR/AD";
+    if (kind === "ar_dr_late_touch") return (type || "AR/AD") + " 晚觸碰";
+    if (kind === "ar_dr_near") return (type || "AR/AD") + " 接近未觸";
     if (kind === "trend_exceed") {
       if (type === "resistance") return "阻力超出";
       if (type === "support") return "支撐超出";
@@ -308,15 +308,15 @@
     const rays = pack.rays || [];
     const lines = pack.trend_lines || [];
     const ar = rays.filter((r) => r.type === "AR");
-    const dr = rays.filter((r) => r.type === "DR");
+    const ad = rays.filter((r) => r.type === "AD" || r.type === "DR");
     const arOn = ar.filter((r) => r.active).length;
-    const drOn = dr.filter((r) => r.active).length;
+    const adOn = ad.filter((r) => r.active).length;
     const tlValid = lines.filter((l) => !l.invalidated).length;
     const bits = [];
     if (ar.length) bits.push(`AR ${arOn}/${ar.length} 有效`);
     else bits.push("AR 無");
-    if (dr.length) bits.push(`DR ${drOn}/${dr.length} 有效`);
-    else bits.push("DR 無");
+    if (ad.length) bits.push(`AD ${adOn}/${ad.length} 有效`);
+    else bits.push("AD 無");
     bits.push(`趨勢線 ${tlValid}/${lines.length}`);
     const best = pack.best_touch_line;
     if (best) {
@@ -359,7 +359,7 @@
           subEl.innerHTML =
             `${escapeHtml(name)} · TradingView` +
             (logScale ? " · <strong>對數座標</strong>" : "") +
-            " · 趨勢線 / AR/DR 請在圖表工具列查看";
+            " · 趨勢線 / AR/AD 請在圖表工具列查看";
         }
         if (token !== openToken) return;
         hideStatus();
@@ -382,7 +382,7 @@
           `${escapeHtml(name)} · ${escapeHtml(group)} · ${escapeHtml(typeLabel(type, kind))}` +
           (level ? ` · Level <strong>${escapeHtml(fmtLevel(level))}</strong>` : "") +
           (pack
-            ? ` · AR/DR ${rayN} · 趨勢線 ${tlN}` +
+            ? ` · AR/AD ${rayN} · 趨勢線 ${tlN}` +
               (bestN != null ? ` · 藍線200D ${bestN}觸` : "")
             : "");
       }

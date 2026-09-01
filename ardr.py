@@ -1,17 +1,17 @@
-"""AR/DR signal detection, ray lifecycle, and chart segment helpers.
+"""AR/AD signal detection, ray lifecycle, and chart segment helpers.
 
 AR (Auto Rally)
   Sharp drop, consecutive bear bars, bullish reversal on high volume.
   Ray level = signal bar HIGH.
 
-DR
+AD (Auto Drop)
   Sharp rise, consecutive bull bars, bearish reversal on high volume.
   Ray level = signal bar LOW.
 
 Ray rules
-  Each AR/DR signal bar draws two horizontal wick rays (upper=high, lower=low).
+  Each AR/AD signal bar draws two horizontal wick rays (upper=high, lower=low).
   Both extend right from the signal bar; each stops at its first wick touch.
-  Scanner reports primary wick late touch: AR→high, DR→low, only after >10 bars on 1D.
+  Scanner reports primary wick late touch: AR→high, AD→low, only after >10 bars on 1D.
   Fresh alerts: touch in last 2 bars. Lookback list: late touch within last 10 bars after >20 bars.
   Near-miss: primary wick still active, ≥60 bars after signal, wick within 1% in last 200 bars.
 """
@@ -101,7 +101,7 @@ def sharp_up(candles: list[dict], idx: int) -> bool:
 
 
 def detect_signals(candles: list[dict]) -> list[dict]:
-    """Find AR/DR reversal bars (matches Pine: sharpDown[1] / sharpUp[1])."""
+    """Find AR/AD reversal bars (matches Pine: sharpDown[1] / sharpUp[1])."""
     signals: list[dict] = []
     start = LOOKBACK + MIN_STREAK + 1
     if len(candles) < start + 1:
@@ -126,7 +126,7 @@ def detect_signals(candles: list[dict]) -> list[dict]:
         if bear_bar(candles, i) and bull_bar(candles, prev) and sharp_up(candles, prev):
             signals.append(
                 {
-                    "type": "DR",
+                    "type": "AD",
                     "index": i,
                     "time": candles[i]["time"],
                     "level": candles[i]["low"],
@@ -165,7 +165,7 @@ def resolve_wick_ray(candles: list[dict], sig_idx: int, level: float, side: str)
 
 
 def resolve_signal_rays(candles: list[dict], item: dict) -> dict[str, Any]:
-    """Upper (high) and lower (low) wick rays for one AR/DR signal."""
+    """Upper (high) and lower (low) wick rays for one AR/AD signal."""
     idx = item["index"]
     bar = candles[idx]
     return {
