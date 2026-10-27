@@ -27,8 +27,8 @@ TIMEFRAMES: dict[str, dict[str, Any]] = {
     "1d": {
         "interval": "1d",
         "range": "5y",
-        "bars": 800,
-        "chart_bars": 320,
+        "bars": 1000,
+        "chart_bars": 600,
         "touch_window": 20,
         "late_touch_window": 20,
         "late_touch_lookback": 10,
@@ -63,7 +63,12 @@ fresh_range = ardr.fresh_range
 TREND_EXCEED_MIN_BARS = tl.TREND_EXCEED_MIN_BARS
 TREND_EXCEED_MAX_BARS = tl.TREND_EXCEED_MAX_BARS
 TREND_EXCEED_BARS = tl.TREND_EXCEED_BARS
+TREND_SIGNAL_BARS = tl.TREND_SIGNAL_BARS
+EXPAND_WINDOW = tl.EXPAND_WINDOW
+EXPAND_WINDOWS = tl.EXPAND_WINDOWS
+CHART_BARS = tl.CHART_BARS
 build_auto_trend_lines = tl.build_auto_trend_lines
+build_auto_trend_lines_expanding = tl.build_auto_trend_lines_expanding
 build_best_touch_line = tl.build_best_touch_line
 check_line_invalidation = tl.check_line_invalidation
 find_trend_touch = tl.find_trend_touch
@@ -78,6 +83,19 @@ KIND_ORDER = {
     "ar_dr_near": 3,
     "trend_touch": 4,
 }
+
+
+def trend_tag(h: dict) -> tuple[str, str]:
+    kind = str(h.get("line_label") or "")
+    if kind == "creek":
+        return "creek", "Creek"
+    if kind == "ice":
+        return "ice", "Ice"
+    txt = "阻力" if h.get("type") == "resistance" else "支撐"
+    if h.get("is_channel"):
+        txt = "通道" + txt
+    cls = "resist" if h.get("type") == "resistance" else "support"
+    return cls, txt
 
 
 def normalize_signal_type(sig_type: str | None) -> str:
@@ -112,6 +130,22 @@ def normalize_result_events(result: dict) -> dict:
     out = dict(result)
     out["events"] = [normalize_hit(ev) for ev in out.get("events") or []]
     return out
+
+
+def trend_tag(h: dict) -> tuple[str, str]:
+    kind = str(h.get("line_label") or h.get("type") or "")
+    if kind == "creek":
+        return "creek", "Creek"
+    if kind == "ice":
+        return "ice", "Ice"
+    if h.get("type") == "resistance":
+        txt = "阻力"
+    else:
+        txt = "支撐"
+    if h.get("is_channel"):
+        txt = "通道" + txt
+    cls = "resist" if h.get("type") == "resistance" else "support"
+    return cls, txt
 
 
 def chart_key(group: str, symbol: str, timeframe: str) -> str:
@@ -202,29 +236,49 @@ def with_retries(fn, retries: int = 3, pause: float = 0.8):
     raise last_err  # type: ignore[misc]
 
 
+def _trend_hit_extras(line: dict, hit: dict) -> dict:
+    if line.get("search_lookback") is not None:
+        hit["search_lookback"] = int(line["search_lookback"])
+    if line.get("pivot_count") is not None:
+        hit["pivot_count"] = int(line["pivot_count"])
+    if line.get("label"):
+        hit["line_label"] = str(line["label"])
+    if line.get("is_channel"):
+        hit["is_channel"] = True
+    return hit
+
+
 def collect_trend_touches(candles: list[dict], lines: list[dict]) -> list[dict]:
     if not candles:
         return []
-    lo, last = fresh_range(len(candles))
     hits = []
     for line in lines:
-        if check_line_invalidation(candles, line):
+        if find_trend_exceed(candles, line):
             continue
         touch = find_trend_touch(candles, line)
-        if not touch or not (lo <= touch["index"] <= last):
+        if not touch:
             continue
-        label = "阻力趨勢線觸碰" if line["type"] == "resistance" else "支撐趨勢線觸碰"
-        hits.append(
-            {
-                "kind": "trend_touch",
-                "label": label,
-                "type": line["type"],
-                "time": touch["time"],
-                "index": touch["index"],
-                "level": touch["price"],
-                "close": touch["close"],
-            }
-        )
+        kind = line.get("label") or line["type"]
+        if kind == "creek":
+            label = "Creek 觸碰"
+        elif kind == "ice":
+            label = "Ice 觸碰"
+        elif line["type"] == "resistance":
+            label = "阻力趨勢線觸碰"
+        else:
+            label = "支撐趨勢線觸碰"
+        if line.get("is_channel"):
+            label = "通道" + label
+        hit = {
+            "kind": "trend_touch",
+            "label": label,
+            "type": line["type"],
+            "time": touch["time"],
+            "index": touch["index"],
+            "level": touch["price"],
+            "close": touch["close"],
+        }
+        hits.append(_trend_hit_extras(line, hit))
     return hits
 
 
@@ -234,20 +288,55 @@ def collect_trend_exceeds(candles: list[dict], lines: list[dict]) -> list[dict]:
         exc = find_trend_exceed(candles, line)
         if not exc:
             continue
-        label = "阻力趨勢線超出" if line["type"] == "resistance" else "支撐趨勢線超出"
-        hits.append(
-            {
-                "kind": "trend_exceed",
-                "label": label,
-                "type": line["type"],
-                "time": exc["time"],
-                "index": exc["index"],
-                "level": exc["price"],
-                "close": exc["close"],
-                "exceed_bars": exc["bars"],
-            }
-        )
+        kind = line.get("label") or line["type"]
+        if kind == "creek":
+            label = "Creek 突破"
+        elif kind == "ice":
+            label = "Ice 突破"
+        elif line["type"] == "resistance":
+            label = "阻力趨勢線超出"
+        else:
+            label = "支撐趨勢線超出"
+        if line.get("is_channel"):
+            label = "通道" + label
+        hit = {
+            "kind": "trend_exceed",
+            "label": label,
+            "type": line["type"],
+            "time": exc["time"],
+            "index": exc["index"],
+            "level": exc["price"],
+            "close": exc["close"],
+            "exceed_bars": exc["bars"],
+        }
+        hits.append(_trend_hit_extras(line, hit))
     return hits
+
+
+def serialize_trend_lines(candles: list[dict], lines: list[dict]) -> list[dict]:
+    trend = []
+    for line in lines:
+        invalidated = check_line_invalidation(candles, line)
+        end_time, end_price = line_end_at_break(candles, line)
+        item = {
+            "type": line["type"],
+            "p1": {"time": int(line["p1"]["time"]), "price": float(line["p1"]["price"])},
+            "p2": {"time": int(line["p2"]["time"]), "price": float(line["p2"]["price"])},
+            "endTime": int(end_time),
+            "endPrice": float(end_price),
+            "invalidated": invalidated,
+            "pivot_count": int(line.get("pivot_count") or 0),
+        }
+        if line.get("search_lookback") is not None:
+            item["search_lookback"] = int(line["search_lookback"])
+        if line.get("label"):
+            item["label"] = str(line["label"])
+        if line.get("is_channel"):
+            item["is_channel"] = True
+        if line.get("horizontal"):
+            item["horizontal"] = True
+        trend.append(item)
+    return trend
 
 
 def chart_pack_start_index(
@@ -256,29 +345,29 @@ def chart_pack_start_index(
     chart_bars: int,
     best_touch_line: dict | None = None,
 ) -> int:
-    """Default last chart_bars; extend back to earliest trend-line p1 so lines are not clipped."""
-    tail = max(0, len(candles) - chart_bars)
-    if not candles:
-        return tail
-    starts = [int(line["p1"]["index"]) for line in lines] if lines else []
-    if best_touch_line is not None:
-        starts.append(int(best_touch_line["p1"]["index"]))
-    if not starts:
-        return tail
-    return min(tail, min(starts))
+    """Fixed last chart_bars (600)."""
+    return max(0, len(candles) - chart_bars)
 
 
 def build_chart_pack(
     candles: list[dict],
     signals: list[dict],
     lines: list[dict],
-    chart_bars: int = 800,
+    chart_bars: int = 600,
+    lines_expand: list[dict] | None = None,
 ) -> dict:
     best_touch = build_best_touch_line(candles)
-    start_idx = chart_pack_start_index(candles, lines, chart_bars, best_touch)
+    all_lines = list(lines) + list(lines_expand or [])
+    start_idx = chart_pack_start_index(candles, all_lines, chart_bars, best_touch)
     trimmed = candles[start_idx:]
     if not trimmed:
-        return {"candles": [], "rays": [], "trend_lines": [], "best_touch_line": None}
+        return {
+            "candles": [],
+            "rays": [],
+            "trend_lines": [],
+            "trend_lines_expand": [],
+            "best_touch_line": None,
+        }
 
     t_min = int(trimmed[0]["time"])
     t_max = int(trimmed[-1]["time"])
@@ -298,22 +387,6 @@ def build_chart_pack(
             ray["segments"] = segs
             ray["type"] = normalize_signal_type(ray.get("type"))
             rays.append(ray)
-
-    trend = []
-    for line in lines:
-        invalidated = check_line_invalidation(candles, line)
-        end_time, end_price = line_end_at_break(candles, line)
-        trend.append(
-            {
-                "type": line["type"],
-                "p1": {"time": int(line["p1"]["time"]), "price": float(line["p1"]["price"])},
-                "p2": {"time": int(line["p2"]["time"]), "price": float(line["p2"]["price"])},
-                "endTime": int(end_time),
-                "endPrice": float(end_price),
-                "invalidated": invalidated,
-                "pivot_count": int(line.get("pivot_count") or 0),
-            }
-        )
 
     best_touch_line = None
     if best_touch is not None:
@@ -340,7 +413,8 @@ def build_chart_pack(
             for c in trimmed
         ],
         "rays": rays,
-        "trend_lines": trend,
+        "trend_lines": serialize_trend_lines(candles, lines),
+        "trend_lines_expand": serialize_trend_lines(candles, lines_expand or []),
         "best_touch_line": best_touch_line,
     }
 
@@ -366,11 +440,15 @@ def scan_job(job: dict[str, str]) -> dict:
             candles, signals, late_touch_window, lookback, late_min_display
         )
         near = collect_late_ar_dr_near_misses(candles, signals, near_min_bars, near_lookback)
-        lines = build_auto_trend_lines(candles)
+        lines = build_auto_trend_lines_expanding(candles)
+        lines_e = lines
         trend = collect_trend_touches(candles, lines)
         exceed = collect_trend_exceeds(candles, lines)
+        trend_e = trend
+        exceed_e = exceed
         events = late + late_lb + near + trend + exceed
-        for ev in events:
+        events_e200 = trend_e + exceed_e
+        for ev in events + events_e200:
             ev["timeframe"] = timeframe
         return {
             "group": group,
@@ -381,8 +459,11 @@ def scan_job(job: dict[str, str]) -> dict:
             "timeframe": timeframe,
             "bars": len(candles),
             "events": events,
+            "events_e200": events_e200,
             "error": None,
-            "chart": build_chart_pack(candles, signals, lines, int(cfg["chart_bars"])),
+            "chart": build_chart_pack(
+                candles, signals, lines, int(cfg["chart_bars"]), lines_e
+            ),
         }
     except Exception as exc:  # noqa: BLE001
         return {
@@ -394,6 +475,7 @@ def scan_job(job: dict[str, str]) -> dict:
             "timeframe": timeframe,
             "bars": 0,
             "events": [],
+            "events_e200": [],
             "error": str(exc),
             "chart": None,
         }
@@ -414,6 +496,17 @@ def fmt_tf(tf: str) -> str:
 def read_static(name: str) -> str:
     with open(os.path.join(STATIC_DIR, name), encoding="utf-8") as f:
         return f.read()
+
+
+FONT_LINKS = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com" />'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />'
+    '<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet" />'
+)
+
+
+def report_style() -> str:
+    return read_static("report.css")
 
 
 def build_symbol_catalog(results: list[dict], charts: dict) -> list[dict]:
@@ -449,6 +542,7 @@ def page_nav_html(active: str) -> str:
         ("twse", "index.html", "上市"),
         ("tpex", "tpex.html", "上櫃"),
         ("watchlist", "watchlist.html", WATCHLIST_NAME),
+        ("trend200", "trend200.html", "趨勢200"),
     )
     parts = ['<nav class="page-nav">']
     for key, href, label in links:
@@ -645,13 +739,13 @@ def render_html(payload: dict, pool: str = "twse") -> str:
         )
 
     def row_trend(h: dict) -> str:
-        cls = "resist" if h.get("type") == "resistance" else "support"
+        cls, txt = trend_tag(h)
         tf = str(h.get("timeframe", "1d"))
         return (
             f'<tr data-symbol="{html.escape(str(h.get("symbol","")), quote=True)}" '
             f'data-group="{html.escape(str(h.get("group","")), quote=True)}" '
             f'data-timeframe="{html.escape(tf, quote=True)}">'
-            f'<td><span class="tag {cls}">{html.escape(str(h.get("type", "")))}</span></td>'
+            f'<td><span class="tag {cls}">{html.escape(txt)}</span></td>'
             f"<td>{tf_cell(h)}</td>"
             f"<td>{pool_cell(h)}</td>"
             f"<td>{sym_btn(h)}</td>"
@@ -662,13 +756,13 @@ def render_html(payload: dict, pool: str = "twse") -> str:
         )
 
     def row_exceed(h: dict) -> str:
-        cls = "resist" if h.get("type") == "resistance" else "support"
+        cls, txt = trend_tag(h)
         tf = str(h.get("timeframe", "1d"))
         return (
             f'<tr data-symbol="{html.escape(str(h.get("symbol","")), quote=True)}" '
             f'data-group="{html.escape(str(h.get("group","")), quote=True)}" '
             f'data-timeframe="{html.escape(tf, quote=True)}">'
-            f'<td><span class="tag {cls}">{html.escape(str(h.get("type", "")))}</span></td>'
+            f'<td><span class="tag {cls}">{html.escape(txt)}</span></td>'
             f"<td>{tf_cell(h)}</td>"
             f"<td>{pool_cell(h)}</td>"
             f"<td>{sym_btn(h)}</td>"
@@ -699,95 +793,9 @@ def render_html(payload: dict, pool: str = "twse") -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="refresh" content="3600" />
   <title>台股 · {page_title} Alerts</title>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  {FONT_LINKS}
   <style>
-    :root {{
-      --bg: #000; --panel: rgba(8,12,20,.58); --border: rgba(0,255,213,.18);
-      --text: #eefdfb; --muted: #7a93a8; --primary: #00f0c8;
-      --ar: #00e896; --ad: #ff4d6d;
-    }}
-    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{
-      font-family: "Space Grotesk", system-ui, sans-serif;
-      background: #000; color: var(--text); min-height: 100vh; padding: 28px 18px 48px;
-    }}
-    .wrap {{ max-width: 1100px; margin: 0 auto; }}
-    h1 {{ font-size: 1.5rem; color: var(--primary); }}
-    .meta {{ color: var(--muted); font-size: .9rem; margin: 8px 0 18px; line-height: 1.5; }}
-    .cards {{ display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }}
-    @media (max-width: 900px) {{ .cards {{ grid-template-columns: repeat(2, 1fr); }} }}
-    .card {{ background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }}
-    .card .lbl {{ font-size: .65rem; color: var(--muted); text-transform: uppercase; }}
-    .card .val {{ font-family: "JetBrains Mono", monospace; font-size: 1.15rem; font-weight: 700; margin-top: 4px; }}
-    .pool-filters {{ display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; }}
-    .pool-filters button {{
-      font: inherit; cursor: pointer; height: 30px; padding: 0 12px; border-radius: 999px;
-      border: 1px solid var(--border); background: rgba(6,10,18,.55); color: var(--muted); font-size: .78rem;
-    }}
-    .pool-filters button.active {{
-      color: #04110e; border-color: transparent;
-      background: linear-gradient(135deg, #00f0c8, #00b894);
-    }}
-    h2 {{ font-size: 1.05rem; margin: 22px 0 10px; }}
-    .panel {{ background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; overflow-x: auto; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: .84rem; min-width: 640px; }}
-    th, td {{ padding: 9px 12px; text-align: left; border-bottom: 1px solid rgba(0,240,200,.08); }}
-    th {{ color: var(--muted); font-size: .68rem; text-transform: uppercase; }}
-    td.num, th.num {{ text-align: right; font-family: "JetBrains Mono", monospace; }}
-    td.empty {{ text-align: center; color: var(--muted); padding: 22px; }}
-    code {{ font-family: "JetBrains Mono", monospace; color: var(--primary); }}
-    .tag {{ display: inline-block; font-size: .72rem; padding: 2px 7px; border-radius: 5px; font-weight: 700; }}
-    .tag.ar {{ background: rgba(0,232,150,.14); color: var(--ar); }}
-    .tag.ad {{ background: rgba(255,77,109,.14); color: var(--ad); }}
-    .tag.resist {{ background: rgba(255,77,109,.14); color: var(--ad); }}
-    .tag.support {{ background: rgba(0,232,150,.14); color: var(--ar); }}
-    .sym-btn {{ background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }}
-    .sym-btn:hover code {{ text-decoration: underline; }}
-    footer {{ margin-top: 28px; color: var(--muted); font-size: .75rem; }}
-    a {{ color: var(--primary); }}
-    .page-nav {{ display: flex; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }}
-    .page-nav a {{
-      font-size: .85rem; padding: 8px 14px; border-radius: 999px; text-decoration: none;
-      border: 1px solid var(--border); color: var(--muted);
-    }}
-    .page-nav a.active {{
-      color: #04110e; border-color: transparent;
-      background: linear-gradient(135deg, #00f0c8, #00b894);
-    }}
-    .search-fab {{
-      position: fixed; right: 18px; bottom: 22px; z-index: 70;
-      display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px;
-      border: 1px solid var(--border); background: rgba(6,10,18,.85); color: var(--text); cursor: pointer; font: inherit;
-    }}
-    .search-overlay {{
-      position: fixed; inset: 0; z-index: 85; background: rgba(0,0,0,.62);
-      display: flex; align-items: flex-start; justify-content: center; padding: 10vh 16px;
-    }}
-    .search-overlay[hidden] {{ display: none !important; }}
-    .search-modal {{
-      width: min(520px, 100%); max-height: 70vh; background: rgba(8,12,20,.95);
-      border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;
-    }}
-    .search-modal-head {{ display: flex; gap: 8px; padding: 14px; border-bottom: 1px solid var(--border); }}
-    #symbolSearch {{ flex: 1; height: 42px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: #0a0e14; color: var(--text); font-family: "JetBrains Mono", monospace; }}
-    #symbolList {{ list-style: none; margin: 0; padding: 8px; overflow-y: auto; flex: 1; }}
-    #symbolList li {{ padding: 10px 12px; border-radius: 10px; cursor: pointer; }}
-    #symbolList li:hover {{ background: rgba(0,240,200,.06); }}
-    .modal {{
-      position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;
-      padding: 16px; background: rgba(0,0,0,.62); opacity: 0; pointer-events: none; transition: opacity .2s;
-    }}
-    .modal.open {{ opacity: 1; pointer-events: auto; }}
-    .modal-panel {{
-      width: min(1100px, 100%); height: min(720px, 92vh);
-      background: rgba(8,12,20,.9); border: 1px solid var(--border); border-radius: 16px;
-      display: flex; flex-direction: column; overflow: hidden;
-    }}
-    .modal-head {{ display: flex; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); }}
-    .modal-close {{ width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }}
-    .modal-chart {{ flex: 1; min-height: 0; position: relative; background: #000; }}
-    .modal-chart #lwc {{ position: absolute; inset: 0; width: 100%; height: 100%; }}
-    .modal-status {{ position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }}
+{report_style()}
   </style>
 </head>
 <body>
@@ -807,7 +815,7 @@ def render_html(payload: dict, pool: str = "twse") -> str:
       <div class="card"><div class="lbl">趨勢線超出</div><div class="val">{hc['trend_exceed']}</div></div>
     </div>
 
-    <h2>趨勢線超出（最新 {TREND_EXCEED_MIN_BARS}–{TREND_EXCEED_MAX_BARS} 根）</h2>
+    <h2>趨勢線超出（近 {TREND_SIGNAL_BARS} 根 · 與觸碰互斥）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="exceed">{rows(exceed, "目前無超出信號", 8, row_exceed)}</tbody></table></div>
@@ -827,12 +835,182 @@ def render_html(payload: dict, pool: str = "twse") -> str:
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">差距</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="ar_near">{rows(ar_near, "目前無符合條件的接近未觸（200 根內 · 根數 ≥ 60）", 9, row_ar_near)}</tbody></table></div>
 
-    <h2>趨勢線觸碰</h2>
+    <h2>趨勢線觸碰（近 {TREND_SIGNAL_BARS} 根 · 有突破不標）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th>時間</th>
     </tr></thead><tbody data-section="trend">{rows(trend, "目前無趨勢線觸碰", 7, row_trend)}</tbody></table></div>
 
     <footer>每小時自動更新 · <a href="latest.json">latest.json</a></footer>
+  </div>
+
+  <button type="button" class="search-fab" id="searchFab" aria-label="搜尋商品">
+    <span>🔍</span><span>搜尋商品</span>
+  </button>
+  <div class="search-overlay" id="symbolOverlay" hidden>
+    <div class="search-modal">
+      <div class="search-modal-head">
+        <input id="symbolSearch" type="search" placeholder="代碼或名稱…" autocomplete="off" />
+        <button type="button" id="symbolSearchClose">關閉</button>
+      </div>
+      <ul id="symbolList"></ul>
+    </div>
+  </div>
+
+  <div id="chart-modal" class="modal" hidden aria-hidden="true">
+    <div class="modal-panel" role="dialog">
+      <div class="modal-head">
+        <div>
+          <div id="chart-title" class="modal-title">Chart</div>
+          <div id="chart-sub" class="modal-sub"></div>
+        </div>
+        <button type="button" class="modal-close" id="chart-close" aria-label="關閉">×</button>
+      </div>
+      <div class="modal-chart" id="chart-body">
+        <div class="modal-status" id="chart-status">載入中…</div>
+        <div id="lwc" hidden></div>
+        <iframe id="tv-frame" title="TradingView chart" hidden></iframe>
+      </div>
+    </div>
+  </div>
+{embed_js}{filter_script}{read_static("report-chart-modal.html")}
+</body>
+</html>
+"""
+
+
+def render_trend200_html(payload: dict) -> str:
+    """Trend-only report using expanding 200-bar lookback per side."""
+    hits = payload.get("hits_e200") or []
+    exceed = [h for h in hits if h["kind"] == "trend_exceed"]
+    trend = [h for h in hits if h["kind"] == "trend_touch"]
+    results = payload.get("results") or []
+    ok = sum(1 for r in results if not r.get("error"))
+    jobs_n = len(results)
+    u = payload["universe"]
+    gen = html.escape(payload["generated_at"])
+    win = EXPAND_WINDOW
+    win_steps = " → ".join(str(w) for w in EXPAND_WINDOWS)
+
+    def sym_btn(h: dict) -> str:
+        sym = str(h.get("symbol", ""))
+        grp = str(h.get("group", ""))
+        name = str(h.get("name", sym))
+        tf = str(h.get("timeframe", "1d"))
+        attrs = (
+            f'data-symbol="{html.escape(sym, quote=True)}" '
+            f'data-group="{html.escape(grp, quote=True)}" '
+            f'data-name="{html.escape(name, quote=True)}" '
+            f'data-tf="{html.escape(tf, quote=True)}" '
+            f'data-level="{html.escape(str(h.get("level", "")), quote=True)}" '
+            f'data-type="{html.escape(str(h.get("type", "")), quote=True)}" '
+            f'data-kind="{html.escape(str(h.get("kind", "")), quote=True)}" '
+            f'data-time="{html.escape(str(h.get("time", "")), quote=True)}"'
+        )
+        return (
+            f'<button type="button" class="sym-btn" {attrs} title="開啟蠟燭圖">'
+            f"<code>{html.escape(sym)}</code></button>"
+        )
+
+    def rows(items: list[dict], empty: str, cols: int, builder) -> str:
+        if not items:
+            return f'<tr><td colspan="{cols}" class="empty">{empty}</td></tr>'
+        return "\n".join(builder(h) for h in items)
+
+    def row_trend(h: dict) -> str:
+        cls, txt = trend_tag(h)
+        tf = str(h.get("timeframe", "1d"))
+        lb = h.get("search_lookback")
+        lb_txt = str(int(lb)) if lb is not None else "—"
+        return (
+            f'<tr data-symbol="{html.escape(str(h.get("symbol","")), quote=True)}" '
+            f'data-group="{html.escape(str(h.get("group","")), quote=True)}" '
+            f'data-timeframe="{html.escape(tf, quote=True)}">'
+            f'<td><span class="tag {cls}">{html.escape(txt)}</span></td>'
+            f"<td>{html.escape(fmt_tf(tf))}</td>"
+            f"<td>{html.escape(group_label(str(h.get('group', ''))))}</td>"
+            f"<td>{sym_btn(h)}</td>"
+            f"<td>{html.escape(h.get('name', ''))}</td>"
+            f'<td class="num">{fmt_num(float(h["level"]))}</td>'
+            f'<td class="num">{lb_txt}</td>'
+            f'<td class="num">{int(h.get("pivot_count") or 0)}</td>'
+            f"<td>{html.escape(fmt_ts(int(h['time'])))}</td>"
+            "</tr>"
+        )
+
+    def row_exceed(h: dict) -> str:
+        cls, txt = trend_tag(h)
+        tf = str(h.get("timeframe", "1d"))
+        lb = h.get("search_lookback")
+        lb_txt = str(int(lb)) if lb is not None else "—"
+        return (
+            f'<tr data-symbol="{html.escape(str(h.get("symbol","")), quote=True)}" '
+            f'data-group="{html.escape(str(h.get("group","")), quote=True)}" '
+            f'data-timeframe="{html.escape(tf, quote=True)}">'
+            f'<td><span class="tag {cls}">{html.escape(txt)}</span></td>'
+            f"<td>{html.escape(fmt_tf(tf))}</td>"
+            f"<td>{html.escape(group_label(str(h.get('group', ''))))}</td>"
+            f"<td>{sym_btn(h)}</td>"
+            f"<td>{html.escape(h.get('name', ''))}</td>"
+            f'<td class="num">{fmt_num(float(h["level"]))}</td>'
+            f'<td class="num">{int(h.get("exceed_bars", TREND_EXCEED_BARS))}</td>'
+            f'<td class="num">{lb_txt}</td>'
+            f"<td>{html.escape(fmt_ts(int(h['time'])))}</td>"
+            "</tr>"
+        )
+
+    catalog = build_symbol_catalog(results, payload.get("charts") or {})
+    embed_js = (
+        "<script>window.CHART_PACKS = {};"
+        + "window.TREND_LINE_SOURCE = 'expand';"
+        + "window.SYMBOL_CATALOG = "
+        + json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))
+        + ";window.WATCHLISTS = "
+        + json.dumps({WATCHLIST_NAME: WATCHLIST_SYMBOLS}, ensure_ascii=False, separators=(",", ":"))
+        + ";</script>\n"
+    )
+    filter_script = read_static("report-pool-filter.html")
+
+    return f"""<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="3600" />
+  <title>台股 · 趨勢線 四點成線</title>
+  {FONT_LINKS}
+  <style>
+{report_style()}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    {page_nav_html("trend200")}
+    <h1>台股 · 趨勢線 四點成線</h1>
+    <p class="meta">
+      四點成線 · 視窗 <strong>{win_steps}</strong>（小不成才放大）·
+      實體穿越 ≤3 / 引線穿越 ≤5 · 近 {TREND_SIGNAL_BARS} 根突破與觸碰互斥 ·
+      圖表固定 <strong>{CHART_BARS}</strong> 根 · 1000 根近水平標 Creek／Ice ·
+      全池 {u['jobs']} jobs · OK {ok}/{jobs_n} · 更新 {gen}
+    </p>
+    <div class="cards cols-3">
+      <div class="card"><div class="lbl">OK</div><div class="val">{ok}/{jobs_n}</div></div>
+      <div class="card"><div class="lbl">趨勢線觸碰</div><div class="val">{len(trend)}</div></div>
+      <div class="card"><div class="lbl">趨勢線超出</div><div class="val">{len(exceed)}</div></div>
+    </div>
+
+    <h2>趨勢線超出（近 {TREND_SIGNAL_BARS} 根 · 與觸碰互斥）</h2>
+    <div class="panel"><table><thead><tr>
+      <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th>
+      <th class="num">價位</th><th class="num">超出根</th><th class="num">搜尋根數</th><th>時間</th>
+    </tr></thead><tbody data-section="exceed">{rows(exceed, "目前無超出信號", 9, row_exceed)}</tbody></table></div>
+
+    <h2>趨勢線觸碰（近 {TREND_SIGNAL_BARS} 根 · 有突破不標）</h2>
+    <div class="panel"><table><thead><tr>
+      <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th>
+      <th class="num">價位</th><th class="num">搜尋根數</th><th class="num">觸點</th><th>時間</th>
+    </tr></thead><tbody data-section="trend">{rows(trend, "目前無趨勢線觸碰", 9, row_trend)}</tbody></table></div>
+
+    <footer>每小時自動更新 · 圖表顯示擴展模式趨勢線 · <a href="latest.json">latest.json</a></footer>
   </div>
 
   <button type="button" class="search-fab" id="searchFab" aria-label="搜尋商品">
@@ -943,61 +1121,9 @@ def render_watchlist_html(payload: dict, items: list[dict]) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="refresh" content="3600" />
   <title>台股 {html.escape(WATCHLIST_NAME)}</title>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  {FONT_LINKS}
   <style>
-    :root {{
-      --bg: #000; --panel: rgba(8,12,20,.58); --border: rgba(0,255,213,.18);
-      --text: #eefdfb; --muted: #7a93a8; --primary: #00f0c8;
-    }}
-    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{
-      font-family: "Space Grotesk", system-ui, sans-serif;
-      background: #000; color: var(--text); min-height: 100vh; padding: 28px 18px 48px;
-    }}
-    .wrap {{ max-width: 1100px; margin: 0 auto; }}
-    h1 {{ font-size: 1.5rem; color: var(--primary); }}
-    .meta {{ color: var(--muted); font-size: .9rem; margin: 8px 0 18px; line-height: 1.5; }}
-    .cards {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }}
-    @media (max-width: 700px) {{ .cards {{ grid-template-columns: 1fr; }} }}
-    .card {{ background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }}
-    .card .lbl {{ font-size: .65rem; color: var(--muted); text-transform: uppercase; }}
-    .card .val {{ font-family: "JetBrains Mono", monospace; font-size: 1.15rem; font-weight: 700; margin-top: 4px; }}
-    .page-nav {{ display: flex; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }}
-    .page-nav a {{
-      font-size: .85rem; padding: 8px 14px; border-radius: 999px; text-decoration: none;
-      border: 1px solid var(--border); color: var(--muted);
-    }}
-    .page-nav a.active {{
-      color: #04110e; border-color: transparent;
-      background: linear-gradient(135deg, #00f0c8, #00b894);
-    }}
-    .panel {{ background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; overflow-x: auto; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: .84rem; min-width: 640px; }}
-    th, td {{ padding: 9px 12px; text-align: left; border-bottom: 1px solid rgba(0,240,200,.08); }}
-    th {{ color: var(--muted); font-size: .68rem; text-transform: uppercase; }}
-    td.num, th.num {{ text-align: right; font-family: "JetBrains Mono", monospace; }}
-    tbody tr:hover {{ background: rgba(0,240,200,.04); }}
-    code {{ font-family: "JetBrains Mono", monospace; color: var(--primary); }}
-    .sym-btn {{ background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }}
-    .sym-btn:hover code {{ text-decoration: underline; }}
-    .muted {{ color: var(--muted); }}
-    footer {{ margin-top: 28px; color: var(--muted); font-size: .75rem; }}
-    a {{ color: var(--primary); }}
-    .modal {{
-      position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;
-      padding: 16px; background: rgba(0,0,0,.62); opacity: 0; pointer-events: none; transition: opacity .2s;
-    }}
-    .modal.open {{ opacity: 1; pointer-events: auto; }}
-    .modal-panel {{
-      width: min(1100px, 100%); height: min(720px, 92vh);
-      background: rgba(8,12,20,.9); border: 1px solid var(--border); border-radius: 16px;
-      display: flex; flex-direction: column; overflow: hidden;
-    }}
-    .modal-head {{ display: flex; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); }}
-    .modal-close {{ width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }}
-    .modal-chart {{ flex: 1; min-height: 0; position: relative; background: #000; }}
-    .modal-chart #lwc {{ position: absolute; inset: 0; width: 100%; height: 100%; }}
-    .modal-status {{ position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }}
+{report_style()}
   </style>
 </head>
 <body>
@@ -1007,7 +1133,7 @@ def render_watchlist_html(payload: dict, items: list[dict]) -> str:
     <p class="meta">
       共 {len(items)} 檔 · 有信號 {hit_n} · 有圖表 {chart_n} · 更新 {gen}
     </p>
-    <div class="cards">
+    <div class="cards cols-3">
       <div class="card"><div class="lbl">自選檔數</div><div class="val">{len(items)}</div></div>
       <div class="card"><div class="lbl">有信號</div><div class="val">{hit_n}</div></div>
       <div class="card"><div class="lbl">有 Chart Pack</div><div class="val">{chart_n}</div></div>
@@ -1073,11 +1199,13 @@ def main() -> int:
                 print(f"  progress {done}/{len(jobs)}", flush=True)
 
     hits: list[dict] = []
+    hits_e200: list[dict] = []
     charts: dict[str, dict] = {}
     slim_results: list[dict] = []
 
     for r in results:
         pack = r.pop("chart", None)
+        events_e200 = r.pop("events_e200", None) or []
         g, sym = r["group"], r["symbol"]
         tf = r.get("timeframe") or "1d"
         key = chart_key(g, sym, tf)
@@ -1091,8 +1219,22 @@ def main() -> int:
                     {**ev, "group": g, "symbol": sym, "name": r.get("name"), "timeframe": tf}
                 )
             )
+        for ev in events_e200:
+            hits_e200.append(
+                normalize_hit(
+                    {**ev, "group": g, "symbol": sym, "name": r.get("name"), "timeframe": tf}
+                )
+            )
 
     hits.sort(
+        key=lambda x: (
+            KIND_ORDER.get(x["kind"], 99),
+            TF_ORDER.get(x.get("timeframe", ""), 99),
+            GROUP_ORDER.get(x.get("group", ""), 99),
+            x["symbol"],
+        )
+    )
+    hits_e200.sort(
         key=lambda x: (
             KIND_ORDER.get(x["kind"], 99),
             TF_ORDER.get(x.get("timeframe", ""), 99),
@@ -1130,9 +1272,13 @@ def main() -> int:
             "ar_dr_near": sum(1 for h in hits if h["kind"] == "ar_dr_near"),
             "trend_touch": sum(1 for h in hits if h["kind"] == "trend_touch"),
             "trend_exceed": sum(1 for h in hits if h["kind"] == "trend_exceed"),
+            "trend_touch_e200": sum(1 for h in hits_e200 if h["kind"] == "trend_touch"),
+            "trend_exceed_e200": sum(1 for h in hits_e200 if h["kind"] == "trend_exceed"),
             "hits": len(hits),
+            "hits_e200": len(hits_e200),
         },
         "hits": hits,
+        "hits_e200": hits_e200,
         "results": slim_results,
         "charts": charts,
         "watchlist": build_watchlist_items(WATCHLIST_SYMBOLS, slim_results, hits, charts),
@@ -1152,6 +1298,7 @@ def main() -> int:
     twse_page = render_html(payload, "twse")
     tpex_page = render_html(payload, "tpex")
     wl_page = render_watchlist_html(payload, payload["watchlist"])
+    trend200_page = render_trend200_html(payload)
     for name in ("latest.html", "index.html"):
         with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8") as f:
             f.write(twse_page)
@@ -1159,6 +1306,8 @@ def main() -> int:
         f.write(tpex_page)
     with open(os.path.join(OUT_DIR, "watchlist.html"), "w", encoding="utf-8") as f:
         f.write(wl_page)
+    with open(os.path.join(OUT_DIR, "trend200.html"), "w", encoding="utf-8") as f:
+        f.write(trend200_page)
 
     errs = [r for r in slim_results if r.get("error")]
     if errs:
@@ -1166,7 +1315,10 @@ def main() -> int:
         for e in errs[:8]:
             print(f"  {e['symbol']} ({e['yahoo_symbol']}): {e['error']}", flush=True)
 
-    print(f"Hits: {len(hits)} · OK: {ok}/{len(jobs)}", flush=True)
+    print(
+        f"Hits: {len(hits)} · e200: {len(hits_e200)} · OK: {ok}/{len(jobs)}",
+        flush=True,
+    )
     if ok == 0:
         return 1
     if ok < len(jobs) * 0.5:

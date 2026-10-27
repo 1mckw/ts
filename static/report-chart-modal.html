@@ -253,7 +253,10 @@
     });
     series.setData(candles);
 
-    const trendLines = pack.trend_lines || [];
+    const useExpand = window.TREND_LINE_SOURCE === "expand";
+    const trendLines = useExpand
+      ? (pack.trend_lines_expand || pack.trend_lines || [])
+      : (pack.trend_lines || []);
     const maxTouchByType = {};
     trendLines.forEach((line) => {
       const t = line.type || "";
@@ -265,9 +268,16 @@
       const touchN = Number(line.pivot_count) || 0;
       const weaker = !line.invalidated && maxTouch > 0 && touchN < maxTouch;
       const alpha = line.invalidated ? 0.3 : weaker ? 0.5 : 0.95;
-      const rgb = line.type === "resistance" ? RESISTANCE_COLOR : SUPPORT_COLOR;
+      const isIce = line.label === "ice";
+      const isCreek = line.label === "creek";
+      let rgb = line.type === "resistance" ? RESISTANCE_COLOR : SUPPORT_COLOR;
+      if (isCreek) rgb = "34,211,238";
+      if (isIce) rgb = "125,211,252";
       const color = `rgba(${rgb},${alpha})`;
-      drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, LINE_W);
+      const style = (line.is_channel || line.horizontal || isCreek || isIce)
+        ? LightweightCharts.LineStyle.Dashed
+        : LightweightCharts.LineStyle.Solid;
+      drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, LINE_W, style);
     });
 
     // 200D 最多觸碰線（藍）— 最後畫，疊在綠/紅之上
@@ -306,7 +316,10 @@
   function ardrSummary(pack) {
     if (!pack) return "無圖表資料";
     const rays = pack.rays || [];
-    const lines = pack.trend_lines || [];
+    const useExpand = window.TREND_LINE_SOURCE === "expand";
+    const lines = useExpand
+      ? (pack.trend_lines_expand || pack.trend_lines || [])
+      : (pack.trend_lines || []);
     const ar = rays.filter((r) => r.type === "AR");
     const ad = rays.filter((r) => r.type === "AD" || r.type === "DR");
     const arOn = ar.filter((r) => r.active).length;
@@ -317,7 +330,13 @@
     else bits.push("AR 無");
     if (ad.length) bits.push(`AD ${adOn}/${ad.length} 有效`);
     else bits.push("AD 無");
-    bits.push(`趨勢線 ${tlValid}/${lines.length}`);
+    bits.push((useExpand ? "趨勢線擴展 " : "趨勢線 ") + tlValid + "/" + lines.length);
+    if (useExpand && lines.length) {
+      const lbs = lines
+        .map((l) => Number(l.search_lookback) || 0)
+        .filter((n) => n > 0);
+      if (lbs.length) bits.push("搜尋 " + Math.max.apply(null, lbs) + "K");
+    }
     const best = pack.best_touch_line;
     if (best) {
       const n = Number(best.pivot_count) || 0;
