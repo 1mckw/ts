@@ -313,6 +313,22 @@ def collect_trend_exceeds(candles: list[dict], lines: list[dict]) -> list[dict]:
     return hits
 
 
+def serialize_anchors(line: dict) -> list[dict]:
+    out: list[dict] = []
+    seen: set[int] = set()
+    for a in line.get("anchors") or []:
+        try:
+            t = int(a["time"])
+            px = float(a["price"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if t in seen:
+            continue
+        seen.add(t)
+        out.append({"time": t, "price": px})
+    return out
+
+
 def serialize_trend_lines(candles: list[dict], lines: list[dict]) -> list[dict]:
     trend = []
     for line in lines:
@@ -327,6 +343,9 @@ def serialize_trend_lines(candles: list[dict], lines: list[dict]) -> list[dict]:
             "invalidated": invalidated,
             "pivot_count": int(line.get("pivot_count") or 0),
         }
+        anchors = serialize_anchors(line)
+        if anchors:
+            item["anchors"] = anchors
         if line.get("search_lookback") is not None:
             item["search_lookback"] = int(line["search_lookback"])
         if line.get("label"):
@@ -400,6 +419,9 @@ def build_chart_pack(
             "invalidated": check_line_invalidation(candles, best_touch),
             "pivot_count": int(best_touch.get("pivot_count") or 0),
         }
+        bt_anchors = serialize_anchors(best_touch)
+        if bt_anchors:
+            best_touch_line["anchors"] = bt_anchors
 
     return {
         "candles": [

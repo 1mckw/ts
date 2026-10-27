@@ -1292,6 +1292,56 @@ a:hover { color: var(--gold-soft); }
     overlays.push(s);
   }
 
+  function candleTimes(candles) {
+    const set = new Set();
+    for (const c of candles) set.add(c.time);
+    return set;
+  }
+
+  function visibleAnchors(anchors, times) {
+    const pts = [];
+    const seen = new Set();
+    for (const a of anchors || []) {
+      const t = a && a.time;
+      const px = a && a.price;
+      if (t == null || px == null || !times.has(t) || seen.has(t)) continue;
+      seen.add(t);
+      pts.push({ time: t, value: Number(px) });
+    }
+    pts.sort((x, y) => x.time - y.time);
+    return pts;
+  }
+
+  function drawAnchorPair(pts, color, candles) {
+    if (!pts.length) return;
+    let data = pts;
+    if (pts.length === 1) {
+      const t = pts[0].time;
+      const i = candles.findIndex((c) => c.time === t);
+      const other =
+        i >= 0 && i + 1 < candles.length
+          ? candles[i + 1].time
+          : i > 0
+            ? candles[i - 1].time
+            : null;
+      if (other == null) return;
+      const stub = { time: other, value: pts[0].value };
+      data = t < other ? [pts[0], stub] : [stub, pts[0]];
+    }
+    const s = chart.addLineSeries({
+      color,
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dotted,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 5,
+    });
+    s.setData(data);
+    overlays.push(s);
+  }
+
   function rayColor(type, active) {
     const rgb = type === "AR" ? "0,232,150" : "255,77,109";
     return active ? `rgba(${rgb},1)` : `rgba(${rgb},0.35)`;
@@ -1362,12 +1412,32 @@ a:hover { color: var(--gold-soft); }
     const trendLines = useExpand
       ? (pack.trend_lines_expand || pack.trend_lines || [])
       : (pack.trend_lines || []);
+    const times = candleTimes(candles);
+    const markers = [];
+    const markerTimes = new Set();
     const maxTouchByType = {};
     trendLines.forEach((line) => {
       const t = line.type || "";
       const n = Number(line.pivot_count) || 0;
       maxTouchByType[t] = Math.max(maxTouchByType[t] || 0, n);
     });
+    function addAnchorVisual(line, rgb, alpha) {
+      const pts = visibleAnchors(line.anchors, times);
+      const color = `rgba(${rgb},${alpha})`;
+      drawAnchorPair(pts, color, candles);
+      const resistance = line.type === "resistance";
+      pts.forEach((p, i) => {
+        if (markerTimes.has(p.time)) return;
+        markerTimes.add(p.time);
+        markers.push({
+          time: p.time,
+          position: resistance ? "aboveBar" : "belowBar",
+          color,
+          shape: "circle",
+          text: pts.length > 1 ? "錨" + (i + 1) : "錨",
+        });
+      });
+    }
     trendLines.forEach((line) => {
       const maxTouch = maxTouchByType[line.type] || 0;
       const touchN = Number(line.pivot_count) || 0;
@@ -1383,6 +1453,7 @@ a:hover { color: var(--gold-soft); }
         ? LightweightCharts.LineStyle.Dashed
         : LightweightCharts.LineStyle.Solid;
       drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, LINE_W, style);
+      addAnchorVisual(line, rgb, alpha);
     });
 
     // 200D 最多觸碰線（藍）— 最後畫，疊在綠/紅之上
@@ -1396,6 +1467,11 @@ a:hover { color: var(--gold-soft); }
         BEST_TOUCH_COLOR,
         LINE_W,
       );
+      addAnchorVisual(bestTouch, "59,130,246", 0.95);
+    }
+    if (markers.length) {
+      markers.sort((a, b) => a.time - b.time);
+      series.setMarkers(markers);
     }
 
     (pack.rays || []).forEach((ray) => {

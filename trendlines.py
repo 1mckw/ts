@@ -14,7 +14,7 @@ Breaks (counted after the first touch)
 
 Windows
   Try 200 → 300 → 400 → 500 → 600 → 800 → 1000; enlarge only if no line.
-  At 1000 bars with slope drift < 1.5%: Creek (support) / Ice (resistance),
+  At 1000 bars with slope drift < 1.5%: Creek (resistance) / Ice (support),
   redrawn as a true horizontal. Chart display is a fixed 600 bars.
 
 Channel
@@ -165,6 +165,24 @@ def pierce_counts(
     return body_n, wick_n
 
 
+def _pack_anchors(anchors: list[dict]) -> list[dict]:
+    packed: list[dict] = []
+    seen: set[int] = set()
+    for a in anchors:
+        t = int(a["time"])
+        if t in seen:
+            continue
+        seen.add(t)
+        packed.append(
+            {
+                "index": int(a["index"]),
+                "time": t,
+                "price": float(a["price"]),
+            }
+        )
+    return packed
+
+
 def evaluate_candidate(
     candles: list[dict],
     p_anchor: dict,
@@ -173,6 +191,7 @@ def evaluate_candidate(
     win_lo: int,
     last_i: int,
     search_lookback: int,
+    anchors: list[dict] | None = None,
 ) -> dict | None:
     raw = collect_raw_touches(candles, p_anchor, slope, resistance, win_lo, last_i)
     seg = longest_touch_segment(raw)
@@ -208,7 +227,7 @@ def evaluate_candidate(
             out_slope = 0.0
             p1 = {**p1, "price": level}
             p2 = {**p2, "price": level}
-            label = "ice" if resistance else "creek"
+            label = "creek" if resistance else "ice"
             horizontal = True
     return {
         "type": "resistance" if resistance else "support",
@@ -224,6 +243,7 @@ def evaluate_candidate(
         "horizontal": horizontal,
         "body_breaks": body_n,
         "wick_breaks": wick_n,
+        "anchors": _pack_anchors(anchors or [p_anchor]),
     }
 
 
@@ -252,7 +272,14 @@ def _collect_side_lines(
                 continue
             slope = (p3["price"] - p1["price"]) / (p3["index"] - p1["index"])
             cand = evaluate_candidate(
-                candles, p1, slope, resistance, win_lo, last_i, search_lookback
+                candles,
+                p1,
+                slope,
+                resistance,
+                win_lo,
+                last_i,
+                search_lookback,
+                anchors=[p1, p3],
             )
             if cand is None:
                 continue
@@ -295,7 +322,7 @@ def find_parallel_channel(
         if not resistance and p["price"] > src_lp:
             continue
         cand = evaluate_candidate(
-            candles, p, slope, resistance, win_lo, last_i, lookback
+            candles, p, slope, resistance, win_lo, last_i, lookback, anchors=[p]
         )
         if cand is None:
             continue
