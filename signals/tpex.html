@@ -354,7 +354,7 @@ a:hover { color: var(--gold-soft); }
 </head>
 <body>
   <div class="wrap">
-    <nav class="page-nav"><a href="index.html" class="">上市</a><a href="tpex.html" class="active">上櫃</a><a href="watchlist.html" class="">自選</a><a href="trend200.html" class="">趨勢200</a></nav>
+    <nav class="page-nav"><a href="index.html" class="">上市</a><a href="tpex.html" class="active">上櫃</a><a href="watchlist.html" class="">自選</a><a href="charts.html" class="">圖表</a></nav>
     <h1>台股 · 上櫃 · AR/AD &amp; 趨勢線</h1>
     <p class="meta">
       商品池 <strong>上櫃</strong> · 週期 <strong>1D</strong> ·
@@ -1277,15 +1277,14 @@ a:hover { color: var(--gold-soft); }
     const out = [];
     let prev = null;
     for (const c of candles) {
-      const t = c.time;
-      if (prev != null && t <= prev) continue;
-      out.push({
-        time: t,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      });
+      let t, o, h, l, cl;
+      if (Array.isArray(c)) {
+        t = c[0]; o = c[1]; h = c[2]; l = c[3]; cl = c[4];
+      } else {
+        t = c.time; o = c.open; h = c.high; l = c.low; cl = c.close;
+      }
+      if (t == null || prev != null && t <= prev) continue;
+      out.push({ time: t, open: o, high: h, low: l, close: cl });
       prev = t;
     }
     return out;

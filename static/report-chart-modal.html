@@ -10,11 +10,8 @@
   const lwcEl = document.getElementById("lwc");
   const frameEl = document.getElementById("tv-frame");
   const closeBtn = document.getElementById("chart-close");
-  let chart = null;
-  let series = null;
-  let overlays = [];
+  let liveModal = null;
   let openToken = 0;
-  let resizeObs = null;
   let remoteCharts = null;
   let remoteChartsPromise = null;
 
@@ -134,12 +131,9 @@
   }
 
   function destroyChart() {
-    if (resizeObs) { resizeObs.disconnect(); resizeObs = null; }
-    overlays = [];
-    if (chart) {
-      chart.remove();
-      chart = null;
-      series = null;
+    if (liveModal) {
+      liveModal.destroy();
+      liveModal = null;
     }
     lwcEl.innerHTML = "";
     frameEl.removeAttribute("src");
@@ -169,23 +163,6 @@
   const SUPPORT_COLOR = "34,197,94";      // 上升支撐 · 綠
   const RESISTANCE_COLOR = "239,68,68";   // 下降阻力 · 紅
 
-  function drawSegment(t0, p0, t1, p1, color, width, style) {
-    if (t0 == null || t1 == null || t0 === t1) return;
-    const s = chart.addLineSeries({
-      color,
-      lineWidth: width,
-      lineStyle: style ?? LightweightCharts.LineStyle.Solid,
-      priceLineVisible: false,
-      lastValueVisible: false,
-      crosshairMarkerVisible: false,
-    });
-    s.setData([
-      { time: t0, value: p0 },
-      { time: t1, value: p1 },
-    ]);
-    overlays.push(s);
-  }
-
   function candleTimes(candles) {
     const set = new Set();
     for (const c of candles) set.add(c.time);
@@ -198,7 +175,8 @@
     for (const a of points || []) {
       const t = a && a.time;
       const px = a && a.price;
-      if (t == null || px == null || !times.has(t) || seen.has(t)) continue;
+      if (t == null || px == null || seen.has(t)) continue;
+      if (times && times.size && !times.has(t) && !times.has(Number(t))) continue;
       seen.add(t);
       pts.push({ time: t, value: Number(px) });
     }
@@ -206,33 +184,48 @@
     return pts;
   }
 
-  function drawTouchPoints(pts, color, candles) {
-    if (!pts.length) return;
-    let data = pts;
-    if (pts.length === 1) {
-      const t = pts[0].time;
-      const i = candles.findIndex((c) => c.time === t);
-      const other =
-        i >= 0 && i + 1 < candles.length
-          ? candles[i + 1].time
-          : i > 0
-            ? candles[i - 1].time
-            : null;
-      if (other == null) return;
-      const stub = { time: other, value: pts[0].value };
-      data = t < other ? [pts[0], stub] : [stub, pts[0]];
+  const TOUCH_TOL_PCT = 0.0045;
+  const MERGE_TOUCH_BARS = 5;
+
+  function inferTouches(line, candles) {
+    const stored = visiblePoints(line.touches, candleTimes(candles));
+    if (stored.length) return stored;
+    if (!line || !line.p1 || !candles.length) return [];
+    const tStart = Number(line.p1.time);
+    const tEnd = Number(line.endTime != null ? line.endTime : (candles[candles.length - 1] || {}).time);
+    if (!Number.isFinite(tStart) || !Number.isFinite(tEnd)) return [];
+    let i1 = candles.findIndex((c) => c.time === tStart || c.time === Number(line.p1.time));
+    if (i1 < 0) i1 = candles.findIndex((c) => c.time >= tStart);
+    if (i1 < 0) return [];
+    let i2 = -1;
+    if (line.p2 && line.p2.time != null) {
+      i2 = candles.findIndex((c) => c.time === Number(line.p2.time));
     }
-    const s = chart.addLineSeries({
-      color,
-      lineWidth: 0,
-      priceLineVisible: false,
-      lastValueVisible: false,
-      crosshairMarkerVisible: false,
-      pointMarkersVisible: true,
-      pointMarkersRadius: 2,
-    });
-    s.setData(data);
-    overlays.push(s);
+    if (i2 < 0) i2 = candles.findIndex((c) => c.time === tEnd);
+    if (i2 < 0) i2 = candles.length - 1;
+    const p1 = Number(line.p1.price);
+    const pRef = i2 !== i1 && line.p2 && line.p2.price != null
+      ? Number(line.p2.price)
+      : Number(line.endPrice != null ? line.endPrice : p1);
+    const slope = i2 !== i1 ? (pRef - p1) / (i2 - i1) : 0;
+    const isRes = line.type === "resistance";
+    const hits = [];
+    for (let i = i1; i < candles.length; i++) {
+      const c = candles[i];
+      if (c.time > tEnd) break;
+      const lp = p1 + slope * (i - i1);
+      const wick = isRes ? c.high : c.low;
+      const tol = Math.max(Math.abs(lp) * TOUCH_TOL_PCT, 1e-9);
+      if (Math.abs(wick - lp) <= tol) hits.push(i);
+    }
+    const merged = [];
+    for (const i of hits) {
+      if (!merged.length || i - merged[merged.length - 1] > MERGE_TOUCH_BARS) merged.push(i);
+    }
+    return merged.map((i) => ({
+      time: candles[i].time,
+      value: p1 + slope * (i - i1),
+    }));
   }
 
   function rayColor(type, active) {
@@ -240,58 +233,49 @@
     return active ? `rgba(${rgb},1)` : `rgba(${rgb},0.35)`;
   }
 
-  function drawRaySegments(ray) {
-    const segs = ray.segments || [];
-    for (const seg of segs) {
-      if (seg.t0 == null || seg.t1 == null || seg.t0 >= seg.t1) continue;
-      drawSegment(
-        seg.t0,
-        seg.price,
-        seg.t1,
-        seg.price,
-        rayColor(ray.type, seg.active),
-        LINE_W,
-        LightweightCharts.LineStyle.Dashed
-      );
-    }
-  }
-
   function normalizeCandles(candles) {
     const out = [];
     let prev = null;
     for (const c of candles) {
-      const t = c.time;
-      if (prev != null && t <= prev) continue;
-      out.push({
-        time: t,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      });
+      let t, o, h, l, cl;
+      if (Array.isArray(c)) {
+        t = c[0]; o = c[1]; h = c[2]; l = c[3]; cl = c[4];
+      } else {
+        t = c.time; o = c.open; h = c.high; l = c.low; cl = c.close;
+      }
+      if (t == null || prev != null && t <= prev) continue;
+      out.push({ time: t, open: o, high: h, low: l, close: cl });
       prev = t;
     }
     return out;
   }
 
-  function renderPack(pack) {
-    destroyChart();
-    lwcEl.hidden = false;
-    frameEl.hidden = true;
+  function createPackChart(hostEl, pack, options) {
+    const interactive = !options || options.interactive !== false;
     const candles = normalizeCandles(pack.candles || []);
     if (!candles.length) throw new Error("no candles");
 
-    chart = LightweightCharts.createChart(lwcEl, {
+    const chart = LightweightCharts.createChart(hostEl, {
       layout: { background: { color: "#000000" }, textColor: "#7a93a8" },
       grid: {
         vertLines: { color: "rgba(0,240,200,0.05)" },
         horzLines: { color: "rgba(0,240,200,0.05)" },
       },
-      rightPriceScale: { borderColor: "#2a364d" },
-      timeScale: { borderColor: "#2a364d", timeVisible: true, secondsVisible: false },
-      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      rightPriceScale: { borderColor: "#2a364d", scaleMargins: { top: 0.08, bottom: 0.08 } },
+      timeScale: {
+        borderColor: "#2a364d",
+        timeVisible: interactive,
+        secondsVisible: false,
+      },
+      crosshair: {
+        mode: interactive
+          ? LightweightCharts.CrosshairMode.Normal
+          : LightweightCharts.CrosshairMode.Hidden,
+      },
+      handleScroll: interactive,
+      handleScale: interactive,
     });
-    series = chart.addCandlestickSeries({
+    const series = chart.addCandlestickSeries({
       upColor: "#00e896",
       downColor: "#ff4d6d",
       borderUpColor: "#00e896",
@@ -301,21 +285,60 @@
     });
     series.setData(candles);
 
+    function drawSegment(t0, p0, t1, p1, color, width, style) {
+      if (t0 == null || t1 == null || t0 === t1) return;
+      const s = chart.addLineSeries({
+        color,
+        lineWidth: width,
+        lineStyle: style ?? LightweightCharts.LineStyle.Solid,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      s.setData([
+        { time: t0, value: p0 },
+        { time: t1, value: p1 },
+      ]);
+    }
+
+    function drawTouchPoints(pts, color) {
+      if (!pts.length) return;
+      let data = pts;
+      if (pts.length === 1) {
+        const t = pts[0].time;
+        const i = candles.findIndex((c) => c.time === t);
+        const other =
+          i >= 0 && i + 1 < candles.length
+            ? candles[i + 1].time
+            : i > 0
+              ? candles[i - 1].time
+              : null;
+        if (other == null) return;
+        const stub = { time: other, value: pts[0].value };
+        data = t < other ? [pts[0], stub] : [stub, pts[0]];
+      }
+      const s = chart.addLineSeries({
+        color,
+        lineWidth: 0,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        pointMarkersVisible: true,
+        pointMarkersRadius: 2,
+      });
+      s.setData(data);
+    }
+
     const useExpand = window.TREND_LINE_SOURCE === "expand";
     const trendLines = useExpand
       ? (pack.trend_lines_expand || pack.trend_lines || [])
       : (pack.trend_lines || []);
-    const times = candleTimes(candles);
     const maxTouchByType = {};
     trendLines.forEach((line) => {
       const t = line.type || "";
       const n = Number(line.pivot_count) || 0;
       maxTouchByType[t] = Math.max(maxTouchByType[t] || 0, n);
     });
-    function addTouchVisual(line, rgb, alpha) {
-      const pts = visiblePoints(line.touches, times);
-      drawTouchPoints(pts, `rgba(${rgb},${alpha})`, candles);
-    }
     trendLines.forEach((line) => {
       const maxTouch = maxTouchByType[line.type] || 0;
       const touchN = Number(line.pivot_count) || 0;
@@ -331,20 +354,47 @@
         ? LightweightCharts.LineStyle.Dashed
         : LightweightCharts.LineStyle.Solid;
       drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, LINE_W, style);
-      addTouchVisual(line, rgb, alpha);
+      drawTouchPoints(inferTouches(line, candles), `rgba(${rgb},1)`);
     });
 
     (pack.rays || []).forEach((ray) => {
-      drawRaySegments(ray);
+      const segs = ray.segments || [];
+      for (const seg of segs) {
+        if (seg.t0 == null || seg.t1 == null || seg.t0 >= seg.t1) continue;
+        drawSegment(
+          seg.t0,
+          seg.price,
+          seg.t1,
+          seg.price,
+          rayColor(ray.type, seg.active),
+          LINE_W,
+          LightweightCharts.LineStyle.Dashed
+        );
+      }
     });
 
     chart.timeScale().fitContent();
-    resizeObs = new ResizeObserver(() => {
-      if (!chart) return;
-      chart.applyOptions({ width: lwcEl.clientWidth, height: lwcEl.clientHeight });
+    const resizeObs = new ResizeObserver(() => {
+      if (!hostEl.clientWidth || !hostEl.clientHeight) return;
+      chart.applyOptions({ width: hostEl.clientWidth, height: hostEl.clientHeight });
     });
-    resizeObs.observe(lwcEl);
-    chart.applyOptions({ width: lwcEl.clientWidth, height: lwcEl.clientHeight });
+    resizeObs.observe(hostEl);
+    chart.applyOptions({ width: hostEl.clientWidth, height: hostEl.clientHeight });
+
+    return {
+      destroy() {
+        resizeObs.disconnect();
+        chart.remove();
+        hostEl.innerHTML = "";
+      },
+    };
+  }
+
+  function renderPack(pack) {
+    destroyChart();
+    lwcEl.hidden = false;
+    frameEl.hidden = true;
+    liveModal = createPackChart(lwcEl, pack, { interactive: true });
   }
 
   function renderTradingView(group, symbol, tf, opts) {
@@ -397,7 +447,7 @@
     const tvOpts = { tvSymbol: tvOverride, logScale };
 
     titleEl.textContent = `${symbol} · ${tf === "1d" ? "1D" : tf === "4h" ? "4H" : tf === "1h" ? "1H" : tf.toUpperCase()}`;
-    const fromWatchlist = kind === "watchlist";
+    const fromWatchlist = kind === "watchlist" || kind === "chartpack";
 
     modal.hidden = false;
     modal.setAttribute("aria-hidden", "false");
@@ -607,6 +657,7 @@
     fake.dataset.group = d.group || "";
     fake.dataset.name = d.name || d.symbol || "";
     fake.dataset.tf = d.tf || "1d";
+    fake.dataset.kind = d.kind || "";
     openChart(fake);
   });
 
@@ -619,5 +670,13 @@
       if (modal.classList.contains("open")) closeModal();
     }
   });
+
+  window.TWChartPack = {
+    createPackChart,
+    loadRemoteCharts,
+    resolvePack,
+    ardrSummary,
+    packKey,
+  };
 })();
 </script>

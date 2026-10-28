@@ -65,8 +65,6 @@ TREND_EXCEED_MIN_BARS = tl.TREND_EXCEED_MIN_BARS
 TREND_EXCEED_MAX_BARS = tl.TREND_EXCEED_MAX_BARS
 TREND_EXCEED_BARS = tl.TREND_EXCEED_BARS
 TREND_SIGNAL_BARS = tl.TREND_SIGNAL_BARS
-EXPAND_WINDOW = tl.EXPAND_WINDOW
-EXPAND_WINDOWS = tl.EXPAND_WINDOWS
 CHART_BARS = tl.CHART_BARS
 build_auto_trend_lines = tl.build_auto_trend_lines
 build_auto_trend_lines_expanding = tl.build_auto_trend_lines_expanding
@@ -113,16 +111,102 @@ def normalize_hit(hit: dict) -> dict:
     return out
 
 
+def compact_num(x: Any, nd: int = 4) -> int | float:
+    v = round(float(x), nd)
+    iv = int(v)
+    return iv if v == iv else v
+
+
+def compact_point(pt: dict) -> dict:
+    out: dict[str, Any] = {"time": int(pt["time"]), "price": compact_num(pt["price"])}
+    return out
+
+
+def compact_candles(candles: list[dict], max_bars: int) -> list[list]:
+    rows = candles[-max_bars:] if len(candles) > max_bars else candles
+    out: list[list] = []
+    for c in rows:
+        out.append(
+            [
+                int(c["time"]),
+                compact_num(c["open"]),
+                compact_num(c["high"]),
+                compact_num(c["low"]),
+                compact_num(c["close"]),
+            ]
+        )
+    return out
+
+
+def compact_rays(rays: list[dict]) -> list[dict]:
+    out: list[dict] = []
+    for ray in rays:
+        segs = []
+        for seg in ray.get("segments") or []:
+            item = {
+                "t0": int(seg["t0"]),
+                "t1": int(seg["t1"]),
+                "price": compact_num(seg["price"]),
+                "active": bool(seg.get("active")),
+            }
+            if seg.get("side"):
+                item["side"] = seg["side"]
+            segs.append(item)
+        packed = {
+            "type": normalize_signal_type(ray.get("type")),
+            "active": bool(ray.get("active")),
+            "segments": segs,
+        }
+        if ray.get("time") is not None:
+            packed["time"] = int(ray["time"])
+        out.append(packed)
+    return out
+
+
+def compact_trend_lines(lines: list[dict]) -> list[dict]:
+    out: list[dict] = []
+    for line in lines:
+        item = {
+            "type": line["type"],
+            "p1": compact_point(line["p1"]),
+            "p2": compact_point(line["p2"]),
+            "endTime": int(line["endTime"]),
+            "endPrice": compact_num(line["endPrice"]),
+            "invalidated": bool(line.get("invalidated")),
+            "pivot_count": int(line.get("pivot_count") or 0),
+        }
+        touches = [compact_point(t) for t in (line.get("touches") or []) if t.get("time") is not None]
+        if touches:
+            item["touches"] = touches
+        if line.get("search_lookback") is not None:
+            item["search_lookback"] = int(line["search_lookback"])
+        if line.get("label"):
+            item["label"] = str(line["label"])
+        if line.get("is_channel"):
+            item["is_channel"] = True
+        if line.get("horizontal"):
+            item["horizontal"] = True
+        out.append(item)
+    return out
+
+
 def normalize_chart_pack(pack: dict | None) -> dict | None:
     if not pack:
         return pack
-    out = dict(pack)
-    rays = []
-    for ray in out.get("rays") or []:
-        r = dict(ray)
-        r["type"] = normalize_signal_type(r.get("type"))
-        rays.append(r)
-    out["rays"] = rays
+    candles = pack.get("candles") or []
+    if candles and isinstance(candles[0], dict):
+        packed_candles = compact_candles(candles, CHART_BARS)
+    else:
+        packed_candles = candles[-CHART_BARS:] if len(candles) > CHART_BARS else candles
+    trend = compact_trend_lines(pack.get("trend_lines") or [])
+    expand = compact_trend_lines(pack.get("trend_lines_expand") or [])
+    out: dict[str, Any] = {
+        "candles": packed_candles,
+        "rays": compact_rays(pack.get("rays") or []),
+        "trend_lines": trend,
+    }
+    if expand and expand != trend:
+        out["trend_lines_expand"] = expand
     return out
 
 
@@ -319,7 +403,7 @@ def serialize_points(line: dict, key: str) -> list[dict]:
     for a in line.get(key) or []:
         try:
             t = int(a["time"])
-            px = float(a["price"])
+            px = compact_num(a["price"])
         except (KeyError, TypeError, ValueError):
             continue
         if t in seen:
@@ -344,10 +428,10 @@ def serialize_trend_lines(candles: list[dict], lines: list[dict]) -> list[dict]:
         end_time, end_price = line_end_at_break(candles, line)
         item = {
             "type": line["type"],
-            "p1": {"time": int(line["p1"]["time"]), "price": float(line["p1"]["price"])},
-            "p2": {"time": int(line["p2"]["time"]), "price": float(line["p2"]["price"])},
+            "p1": {"time": int(line["p1"]["time"]), "price": compact_num(line["p1"]["price"])},
+            "p2": {"time": int(line["p2"]["time"]), "price": compact_num(line["p2"]["price"])},
             "endTime": int(end_time),
-            "endPrice": float(end_price),
+            "endPrice": compact_num(end_price),
             "invalidated": invalidated,
             "pivot_count": int(line.get("pivot_count") or 0),
         }
@@ -386,12 +470,7 @@ def build_chart_pack(
     start_idx = chart_pack_start_index(candles, all_lines, chart_bars)
     trimmed = candles[start_idx:]
     if not trimmed:
-        return {
-            "candles": [],
-            "rays": [],
-            "trend_lines": [],
-            "trend_lines_expand": [],
-        }
+        return {"candles": [], "rays": [], "trend_lines": []}
 
     t_min = int(trimmed[0]["time"])
     t_max = int(trimmed[-1]["time"])
@@ -406,27 +485,35 @@ def build_chart_pack(
             t0, t1 = int(seg["t0"]), int(seg["t1"])
             clip0, clip1 = max(t0, t_min), min(t1, t_max)
             if clip1 > clip0:
-                segs.append({**seg, "t0": clip0, "t1": clip1})
+                segs.append(
+                {
+                    "t0": clip0,
+                    "t1": clip1,
+                    "price": compact_num(seg["price"]),
+                    "active": bool(seg.get("active")),
+                    **({"side": seg["side"]} if seg.get("side") else {}),
+                }
+            )
         if segs:
-            ray["segments"] = segs
-            ray["type"] = normalize_signal_type(ray.get("type"))
-            rays.append(ray)
-
-    return {
-        "candles": [
-            {
-                "time": int(c["time"]),
-                "open": float(c["open"]),
-                "high": float(c["high"]),
-                "low": float(c["low"]),
-                "close": float(c["close"]),
+            packed_ray = {
+                "type": normalize_signal_type(ray.get("type")),
+                "active": bool(ray.get("active")),
+                "segments": segs,
             }
-            for c in trimmed
-        ],
+            if ray.get("time") is not None:
+                packed_ray["time"] = int(ray["time"])
+            rays.append(packed_ray)
+
+    trend = serialize_trend_lines(candles, lines)
+    expand = serialize_trend_lines(candles, lines_expand or [])
+    pack = {
+        "candles": compact_candles(trimmed, chart_bars),
         "rays": rays,
-        "trend_lines": serialize_trend_lines(candles, lines),
-        "trend_lines_expand": serialize_trend_lines(candles, lines_expand or []),
+        "trend_lines": trend,
     }
+    if expand and expand != trend:
+        pack["trend_lines_expand"] = expand
+    return pack
 
 
 def scan_job(job: dict[str, str]) -> dict:
@@ -552,7 +639,7 @@ def page_nav_html(active: str) -> str:
         ("twse", "index.html", "上市"),
         ("tpex", "tpex.html", "上櫃"),
         ("watchlist", "watchlist.html", WATCHLIST_NAME),
-        ("trend200", "trend200.html", "趨勢200"),
+        ("charts", "charts.html", "圖表"),
     )
     parts = ['<nav class="page-nav">']
     for key, href, label in links:
@@ -653,6 +740,47 @@ def build_watchlist_items(
                     "error": "不在掃描結果",
                 }
             )
+    return items
+
+
+def build_chartpack_items(slim_results: list[dict], charts: dict) -> list[dict]:
+    result_map: dict[tuple[str, str, str], dict] = {}
+    for r in slim_results:
+        tf = r.get("timeframe") or "1d"
+        result_map[(r["group"], r["symbol"], tf)] = r
+    items: list[dict] = []
+    for key, pack in (charts or {}).items():
+        parts = str(key).split("|")
+        if len(parts) != 3:
+            continue
+        g, sym, tf = parts
+        r = result_map.get((g, sym, tf)) or {}
+        candles = (pack or {}).get("candles") or []
+        kinds = []
+        seen: set[str] = set()
+        for ev in r.get("events") or []:
+            k = str(ev.get("kind") or "")
+            if k and k not in seen:
+                seen.add(k)
+                kinds.append(k)
+        items.append(
+            {
+                "group": g,
+                "symbol": sym,
+                "name": r.get("name") or sym,
+                "timeframe": tf,
+                "bars": len(candles),
+                "hasHit": bool(kinds),
+                "kinds": kinds,
+            }
+        )
+    items.sort(
+        key=lambda x: (
+            GROUP_ORDER.get(x["group"], 99),
+            TF_ORDER.get(x.get("timeframe", ""), 99),
+            x["symbol"],
+        )
+    )
     return items
 
 
@@ -888,97 +1016,55 @@ def render_html(payload: dict, pool: str = "twse") -> str:
 """
 
 
-def render_trend200_html(payload: dict) -> str:
-    """Trend-only report using expanding 200-bar lookback per side."""
-    hits = payload.get("hits_e200") or []
-    exceed = [h for h in hits if h["kind"] == "trend_exceed"]
-    trend = [h for h in hits if h["kind"] == "trend_touch"]
-    results = payload.get("results") or []
-    ok = sum(1 for r in results if not r.get("error"))
-    jobs_n = len(results)
-    u = payload["universe"]
+def render_charts_html(payload: dict, items: list[dict]) -> str:
     gen = html.escape(payload["generated_at"])
-    win = EXPAND_WINDOW
-    win_steps = " → ".join(str(w) for w in EXPAND_WINDOWS)
-
-    def sym_btn(h: dict) -> str:
-        sym = str(h.get("symbol", ""))
-        grp = str(h.get("group", ""))
-        name = str(h.get("name", sym))
-        tf = str(h.get("timeframe", "1d"))
-        attrs = (
-            f'data-symbol="{html.escape(sym, quote=True)}" '
-            f'data-group="{html.escape(grp, quote=True)}" '
-            f'data-name="{html.escape(name, quote=True)}" '
-            f'data-tf="{html.escape(tf, quote=True)}" '
-            f'data-level="{html.escape(str(h.get("level", "")), quote=True)}" '
-            f'data-type="{html.escape(str(h.get("type", "")), quote=True)}" '
-            f'data-kind="{html.escape(str(h.get("kind", "")), quote=True)}" '
-            f'data-time="{html.escape(str(h.get("time", "")), quote=True)}"'
-        )
-        return (
-            f'<button type="button" class="sym-btn" {attrs} title="開啟蠟燭圖">'
-            f"<code>{html.escape(sym)}</code></button>"
-        )
-
-    def rows(items: list[dict], empty: str, cols: int, builder) -> str:
-        if not items:
-            return f'<tr><td colspan="{cols}" class="empty">{empty}</td></tr>'
-        return "\n".join(builder(h) for h in items)
-
-    def row_trend(h: dict) -> str:
-        cls, txt = trend_tag(h)
-        tf = str(h.get("timeframe", "1d"))
-        lb = h.get("search_lookback")
-        lb_txt = str(int(lb)) if lb is not None else "—"
-        return (
-            f'<tr data-symbol="{html.escape(str(h.get("symbol","")), quote=True)}" '
-            f'data-group="{html.escape(str(h.get("group","")), quote=True)}" '
-            f'data-timeframe="{html.escape(tf, quote=True)}">'
-            f'<td><span class="tag {cls}">{html.escape(txt)}</span></td>'
-            f"<td>{html.escape(fmt_tf(tf))}</td>"
-            f"<td>{html.escape(group_label(str(h.get('group', ''))))}</td>"
-            f"<td>{sym_btn(h)}</td>"
-            f"<td>{html.escape(h.get('name', ''))}</td>"
-            f'<td class="num">{fmt_num(float(h["level"]))}</td>'
-            f'<td class="num">{lb_txt}</td>'
-            f'<td class="num">{int(h.get("pivot_count") or 0)}</td>'
-            f"<td>{html.escape(fmt_ts(int(h['time'])))}</td>"
-            "</tr>"
-        )
-
-    def row_exceed(h: dict) -> str:
-        cls, txt = trend_tag(h)
-        tf = str(h.get("timeframe", "1d"))
-        lb = h.get("search_lookback")
-        lb_txt = str(int(lb)) if lb is not None else "—"
-        return (
-            f'<tr data-symbol="{html.escape(str(h.get("symbol","")), quote=True)}" '
-            f'data-group="{html.escape(str(h.get("group","")), quote=True)}" '
-            f'data-timeframe="{html.escape(tf, quote=True)}">'
-            f'<td><span class="tag {cls}">{html.escape(txt)}</span></td>'
-            f"<td>{html.escape(fmt_tf(tf))}</td>"
-            f"<td>{html.escape(group_label(str(h.get('group', ''))))}</td>"
-            f"<td>{sym_btn(h)}</td>"
-            f"<td>{html.escape(h.get('name', ''))}</td>"
-            f'<td class="num">{fmt_num(float(h["level"]))}</td>'
-            f'<td class="num">{int(h.get("exceed_bars", TREND_EXCEED_BARS))}</td>'
-            f'<td class="num">{lb_txt}</td>'
-            f"<td>{html.escape(fmt_ts(int(h['time'])))}</td>"
-            "</tr>"
-        )
-
-    catalog = build_symbol_catalog(results, payload.get("charts") or {})
+    hit_n = sum(1 for x in items if x.get("hasHit"))
+    catalog = [
+        {
+            "group": x["group"],
+            "symbol": x["symbol"],
+            "name": x.get("name") or x["symbol"],
+            "timeframe": x.get("timeframe") or "1d",
+            "hasHit": bool(x.get("hasHit")),
+            "kinds": list(x.get("kinds") or []),
+            "hasChart": True,
+        }
+        for x in items
+    ]
     embed_js = (
         "<script>window.CHART_PACKS = {};"
-        + "window.TREND_LINE_SOURCE = 'expand';"
         + "window.SYMBOL_CATALOG = "
         + json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))
         + ";window.WATCHLISTS = "
         + json.dumps({WATCHLIST_NAME: WATCHLIST_SYMBOLS}, ensure_ascii=False, separators=(",", ":"))
         + ";</script>\n"
     )
-    filter_script = read_static("report-pool-filter.html")
+    extra_css = """
+.wrap.charts-page{max-width:1480px}
+.charts-page .cards.cols-3{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:16px}
+.charts-page .card{padding:10px 12px}
+.charts-page .card .val{font-size:1.05rem;margin-top:4px}
+@media (max-width:900px){
+  .charts-page .cards.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .charts-page .card{border-bottom:0}
+  .charts-page .cards .card:nth-child(even){border-right:1px solid var(--rule)}
+  .charts-page .cards .card:last-child{border-right:0}
+}
+.charts-page .pool-filters{margin:0 0 12px}
+#chartsFilter{width:100%;box-sizing:border-box;margin:0 0 10px;padding:10px 12px;border:1px solid var(--rule);border-radius:2px;background:var(--paper);color:inherit;font:inherit}
+#chartsFilter:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#chartsStatus{color:var(--muted);font-size:.82rem;margin:0 0 14px}
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.chart-tile{background:var(--paper);border:1px solid var(--rule);cursor:pointer}
+.chart-tile.hit{border-color:rgba(201,160,90,.55)}
+.chart-tile-head{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;font-size:.8rem;align-items:baseline}
+.chart-tile-head code{font-family:"IBM Plex Mono",ui-monospace,monospace;color:var(--gold-soft)}
+.chart-tile-head .muted{color:var(--muted);white-space:nowrap}
+.chart-tile-body{height:220px;background:#000;position:relative}
+.chart-tile-empty{display:grid;place-items:center;height:100%;min-height:80px;color:var(--muted);font-size:.85rem}
+"""
+    charts_script = read_static("report-charts.html")
+    chart_script = read_static("report-chart-modal.html")
 
     return f"""<!DOCTYPE html>
 <html lang="zh-Hant">
@@ -986,54 +1072,37 @@ def render_trend200_html(payload: dict) -> str:
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="refresh" content="3600" />
-  <title>台股 · 趨勢線 四點成線</title>
+  <title>台股 Chart Packs</title>
   {FONT_LINKS}
   <style>
 {report_style()}
+{extra_css}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    {page_nav_html("trend200")}
-    <h1>台股 · 趨勢線 四點成線</h1>
+  <div class="wrap charts-page">
+    {page_nav_html("charts")}
+    <h1>台股 · Chart Packs</h1>
     <p class="meta">
-      四點成線 · 視窗 <strong>{win_steps}</strong>（小不成才放大）·
-      實體穿越 ≤3 / 引線穿越 ≤5 · 近 {TREND_SIGNAL_BARS} 根突破與觸碰互斥 ·
-      圖表固定 <strong>{CHART_BARS}</strong> 根 · 1000 根近水平標 Creek／Ice ·
-      全池 {u['jobs']} jobs · OK {ok}/{jobs_n} · 更新 {gen}
+      共 {len(items)} 份 · 有信號 {hit_n} · 頁面直接畫 Chart Pack · 點擊放大 · 更新 {gen}
     </p>
     <div class="cards cols-3">
-      <div class="card"><div class="lbl">OK</div><div class="val">{ok}/{jobs_n}</div></div>
-      <div class="card"><div class="lbl">趨勢線觸碰</div><div class="val">{len(trend)}</div></div>
-      <div class="card"><div class="lbl">趨勢線超出</div><div class="val">{len(exceed)}</div></div>
+      <div class="card"><div class="lbl">Chart Pack</div><div class="val">{len(items)}</div></div>
+      <div class="card"><div class="lbl">有信號</div><div class="val">{hit_n}</div></div>
+      <div class="card"><div class="lbl">K 棒上限</div><div class="val">{CHART_BARS}</div></div>
     </div>
-
-    <h2>趨勢線超出（近 {TREND_SIGNAL_BARS} 根 · 與觸碰互斥）</h2>
-    <div class="panel"><table><thead><tr>
-      <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th>
-      <th class="num">價位</th><th class="num">超出根</th><th class="num">搜尋根數</th><th>時間</th>
-    </tr></thead><tbody data-section="exceed">{rows(exceed, "目前無超出信號", 9, row_exceed)}</tbody></table></div>
-
-    <h2>趨勢線觸碰（近 {TREND_SIGNAL_BARS} 根 · 有突破不標）</h2>
-    <div class="panel"><table><thead><tr>
-      <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th>
-      <th class="num">價位</th><th class="num">搜尋根數</th><th class="num">觸點</th><th>時間</th>
-    </tr></thead><tbody data-section="trend">{rows(trend, "目前無趨勢線觸碰", 9, row_trend)}</tbody></table></div>
-
-    <footer>每小時自動更新 · 圖表顯示擴展模式趨勢線 · <a href="latest.json">latest.json</a></footer>
-  </div>
-
-  <button type="button" class="search-fab" id="searchFab" aria-label="搜尋商品">
-    <span>🔍</span><span>搜尋商品</span>
-  </button>
-  <div class="search-overlay" id="symbolOverlay" hidden>
-    <div class="search-modal">
-      <div class="search-modal-head">
-        <input id="symbolSearch" type="search" placeholder="代碼或名稱…" autocomplete="off" />
-        <button type="button" id="symbolSearchClose">關閉</button>
-      </div>
-      <ul id="symbolList"></ul>
+    <div class="pool-filters" id="chartsKindFilters" role="group" aria-label="訊號類型">
+      <button type="button" data-kind="all" class="active">全部</button>
+      <button type="button" data-kind="trend_exceed">趨勢超出</button>
+      <button type="button" data-kind="ar_dr_touch">AR/AD 觸碰</button>
+      <button type="button" data-kind="ar_dr_late_touch">AR/AD 晚觸</button>
+      <button type="button" data-kind="ar_dr_near">AR/AD 接近</button>
+      <button type="button" data-kind="trend_touch">趨勢觸碰</button>
     </div>
+    <input id="chartsFilter" type="search" placeholder="代碼或名稱…" autocomplete="off" />
+    <p id="chartsStatus">載入 Chart Packs…</p>
+    <div id="chartsGrid" class="charts-grid"></div>
+    <footer>每小時自動更新 · <a href="index.html">回上市</a> · <a href="latest.json">latest.json</a></footer>
   </div>
 
   <div id="chart-modal" class="modal" hidden aria-hidden="true">
@@ -1052,7 +1121,7 @@ def render_trend200_html(payload: dict) -> str:
       </div>
     </div>
   </div>
-{embed_js}{filter_script}{read_static("report-chart-modal.html")}
+{embed_js}{chart_script}{charts_script}
 </body>
 </html>
 """
@@ -1355,17 +1424,17 @@ def main() -> int:
     wl_page = render_watchlist_html(payload, payload["watchlist"])
     with open(os.path.join(OUT_DIR, "watchlist.html"), "w", encoding="utf-8") as f:
         f.write(wl_page)
+    charts_page = render_charts_html(payload, build_chartpack_items(slim_results, charts))
+    with open(os.path.join(OUT_DIR, "charts.html"), "w", encoding="utf-8") as f:
+        f.write(charts_page)
     if not watchlist_only:
         twse_page = render_html(payload, "twse")
         tpex_page = render_html(payload, "tpex")
-        trend200_page = render_trend200_html(payload)
         for name in ("latest.html", "index.html"):
             with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8") as f:
                 f.write(twse_page)
         with open(os.path.join(OUT_DIR, "tpex.html"), "w", encoding="utf-8") as f:
             f.write(tpex_page)
-        with open(os.path.join(OUT_DIR, "trend200.html"), "w", encoding="utf-8") as f:
-            f.write(trend200_page)
 
     errs = [r for r in slim_results if r.get("error")]
     if errs:

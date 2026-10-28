@@ -7,7 +7,7 @@ GitHub Pages 每小時掃描 **台股上市、上櫃** 及 **加權指數** 日 
 - 上市：https://1mckw.github.io/ts/
 - 上櫃：https://1mckw.github.io/ts/tpex.html
 - 自選：https://1mckw.github.io/ts/watchlist.html
-- 趨勢200：https://1mckw.github.io/ts/trend200.html（四點成線 · 200→300→…→1000）
+- 圖表：https://1mckw.github.io/ts/charts.html（全部 Chart Pack）
 - JSON：`/latest.json`
 
 ## 商品池

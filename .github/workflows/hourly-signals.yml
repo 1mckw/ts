@@ -51,7 +51,8 @@ jobs:
       - name: Commit signal report
         if: github.event_name != 'push'
         run: |
-          git add signals/latest.json signals/latest.html signals/index.html signals/tpex.html signals/watchlist.html signals/trend200.html
+          git add signals/latest.json signals/latest.html signals/index.html signals/tpex.html signals/watchlist.html signals/charts.html
+          git rm -f --ignore-unmatch signals/trend200.html
           if git diff --staged --quiet; then
             echo "No signal file changes"
             exit 0
@@ -77,7 +78,7 @@ jobs:
           cp signals/latest.html _site/index.html
           cp signals/tpex.html _site/tpex.html
           cp signals/watchlist.html _site/watchlist.html
-          cp signals/trend200.html _site/trend200.html
+          cp signals/charts.html _site/charts.html
           cp signals/latest.json _site/latest.json
           cp signals/chart-packs.json _site/chart-packs.json
           touch _site/.nojekyll

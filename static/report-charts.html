@@ -1,0 +1,209 @@
+<script>
+(function () {
+  const GROUP_LABEL = { index: "指數", twse: "上市", tpex: "上櫃", dji: "DJI30", ndx: "NDX100", sp500: "SP500" };
+  const KIND_LABEL = {
+    all: "全部",
+    trend_exceed: "趨勢超出",
+    ar_dr_touch: "AR/AD 觸碰",
+    ar_dr_late_touch: "AR/AD 晚觸",
+    ar_dr_near: "AR/AD 接近",
+    trend_touch: "趨勢觸碰",
+  };
+  const MAX_LIVE = 18;
+  const KIND_KEY = "tw_charts_kind_filter";
+  const catalog = window.SYMBOL_CATALOG || [];
+  const input = document.getElementById("chartsFilter");
+  const grid = document.getElementById("chartsGrid");
+  const statusEl = document.getElementById("chartsStatus");
+  const kindBar = document.getElementById("chartsKindFilters");
+  if (!grid) return;
+
+  const live = new Map();
+  let packs = {};
+  let observer = null;
+  const state = { kind: "all", q: "" };
+
+  try {
+    const saved = localStorage.getItem(KIND_KEY);
+    if (saved && KIND_LABEL[saved]) state.kind = saved;
+  } catch (_) {}
+
+  function packKey(item) {
+    if (window.TWChartPack) return window.TWChartPack.packKey(item.group, item.symbol, item.timeframe || "1d");
+    return item.group + "|" + item.symbol + "|" + (item.timeframe || "1d");
+  }
+
+  function tfLabel(tf) {
+    if (tf === "1d") return "1D";
+    if (tf === "4h") return "4H";
+    if (tf === "1h") return "1H";
+    return (tf || "?").toUpperCase();
+  }
+
+  function matchesQuery(item, q) {
+    if (!q) return true;
+    const hay = [
+      item.symbol,
+      item.name,
+      item.group,
+      GROUP_LABEL[item.group] || item.group,
+      tfLabel(item.timeframe),
+    ].join(" ").toLowerCase();
+    return hay.includes(q);
+  }
+
+  function itemMatches(item) {
+    if (state.kind !== "all") {
+      const kinds = item.kinds || [];
+      if (kinds.indexOf(state.kind) < 0) return false;
+    }
+    return matchesQuery(item, state.q);
+  }
+
+  function syncButtons() {
+    if (!kindBar) return;
+    kindBar.querySelectorAll("button[data-kind]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.kind === state.kind);
+    });
+  }
+
+  function unmount(tile) {
+    const handle = live.get(tile);
+    if (handle) {
+      try { handle.destroy(); } catch (_) {}
+      live.delete(tile);
+    }
+    const body = tile.querySelector(".chart-tile-body");
+    if (body) body.innerHTML = "";
+  }
+
+  function mount(tile) {
+    if (live.has(tile) || tile.hidden) return;
+    while (live.size >= MAX_LIVE) {
+      const oldest = live.keys().next().value;
+      if (!oldest || oldest === tile) break;
+      unmount(oldest);
+    }
+    const key = tile.dataset.key;
+    const pack = packs[key];
+    const body = tile.querySelector(".chart-tile-body");
+    if (!body) return;
+    if (!pack || !pack.candles || !pack.candles.length) {
+      body.innerHTML = '<div class="chart-tile-empty">無圖表資料</div>';
+      return;
+    }
+    if (!window.TWChartPack || typeof LightweightCharts === "undefined") {
+      body.innerHTML = '<div class="chart-tile-empty">圖表引擎未載入</div>';
+      return;
+    }
+    try {
+      live.set(tile, window.TWChartPack.createPackChart(body, pack, { interactive: false }));
+    } catch (_) {
+      body.innerHTML = '<div class="chart-tile-empty">繪製失敗</div>';
+    }
+  }
+
+  function observeTiles() {
+    if (observer) observer.disconnect();
+    observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const tile = entry.target;
+        if (entry.isIntersecting) mount(tile);
+        else unmount(tile);
+      });
+    }, { rootMargin: "200px 0px", threshold: 0.01 });
+    grid.querySelectorAll(".chart-tile").forEach((tile) => observer.observe(tile));
+  }
+
+  function renderGrid() {
+    live.forEach((_, tile) => unmount(tile));
+    const items = catalog.filter(itemMatches);
+    if (statusEl) {
+      const extra = [];
+      if (state.kind !== "all") extra.push(KIND_LABEL[state.kind] || state.kind);
+      if (state.q) extra.push("「" + state.q + "」");
+      statusEl.textContent = extra.length
+        ? `顯示 ${items.length} / ${catalog.length} · ${extra.join(" · ")}`
+        : `全部 ${items.length} 張圖 · 捲動載入`;
+    }
+    const frag = document.createDocumentFragment();
+    items.forEach((item) => {
+      const tile = document.createElement("article");
+      tile.className = "chart-tile" + (item.hasHit ? " hit" : "");
+      tile.dataset.key = packKey(item);
+      tile.dataset.symbol = item.symbol;
+      tile.dataset.group = item.group;
+      tile.dataset.name = item.name || item.symbol;
+      tile.dataset.tf = item.timeframe || "1d";
+      tile.innerHTML =
+        '<div class="chart-tile-head">' +
+        `<span><code>${escapeHtml(item.symbol)}</code> ${escapeHtml(item.name || "")}</span>` +
+        `<span class="muted">${escapeHtml(GROUP_LABEL[item.group] || item.group)} · ${escapeHtml(tfLabel(item.timeframe))}${item.hasHit ? " · 信號" : ""}</span>` +
+        "</div>" +
+        '<div class="chart-tile-body"></div>';
+      tile.addEventListener("click", () => {
+        document.dispatchEvent(new CustomEvent("open-symbol-chart", {
+          detail: {
+            symbol: item.symbol,
+            group: item.group,
+            name: item.name || item.symbol,
+            tf: item.timeframe || "1d",
+            kind: "chartpack",
+          },
+        }));
+      });
+      frag.appendChild(tile);
+    });
+    grid.innerHTML = "";
+    if (!items.length) {
+      grid.innerHTML = '<p class="chart-tile-empty">沒有符合的 Chart Pack</p>';
+      return;
+    }
+    grid.appendChild(frag);
+    observeTiles();
+    requestAnimationFrame(() => {
+      Array.from(grid.querySelectorAll(".chart-tile")).slice(0, 8).forEach(mount);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  if (kindBar) {
+    kindBar.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button[data-kind]");
+      if (!btn) return;
+      state.kind = btn.dataset.kind || "all";
+      try { localStorage.setItem(KIND_KEY, state.kind); } catch (_) {}
+      syncButtons();
+      renderGrid();
+    });
+  }
+
+  let filterTimer = null;
+  if (input) {
+    input.addEventListener("input", () => {
+      clearTimeout(filterTimer);
+      filterTimer = setTimeout(() => {
+        state.q = (input.value || "").trim().toLowerCase();
+        renderGrid();
+      }, 160);
+    });
+  }
+
+  (async function init() {
+    if (statusEl) statusEl.textContent = "載入 Chart Packs…";
+    syncButtons();
+    if (window.TWChartPack) {
+      packs = await window.TWChartPack.loadRemoteCharts();
+    }
+    state.q = (input && input.value ? input.value : "").trim().toLowerCase();
+    renderGrid();
+  })();
+})();
+</script>
