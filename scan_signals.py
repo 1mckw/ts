@@ -71,15 +71,17 @@ build_auto_trend_lines_expanding = tl.build_auto_trend_lines_expanding
 check_line_invalidation = tl.check_line_invalidation
 find_trend_touch = tl.find_trend_touch
 find_trend_exceed = tl.find_trend_exceed
+find_trend_reclaim = tl.find_trend_reclaim
 line_end_at_break = tl.line_end_at_break
 
 UA = {"User-Agent": "Mozilla/5.0 (compatible; TW-Alerts/1.0)"}
 KIND_ORDER = {
     "trend_exceed": 0,
-    "ar_dr_touch": 1,
-    "ar_dr_late_touch": 2,
-    "ar_dr_near": 3,
-    "trend_touch": 4,
+    "trend_reclaim": 1,
+    "ar_dr_touch": 2,
+    "ar_dr_late_touch": 3,
+    "ar_dr_near": 4,
+    "trend_touch": 5,
 }
 
 
@@ -337,7 +339,7 @@ def collect_trend_touches(candles: list[dict], lines: list[dict]) -> list[dict]:
         return []
     hits = []
     for line in lines:
-        if find_trend_exceed(candles, line):
+        if find_trend_reclaim(candles, line) or find_trend_exceed(candles, line):
             continue
         touch = find_trend_touch(candles, line)
         if not touch:
@@ -369,6 +371,8 @@ def collect_trend_touches(candles: list[dict], lines: list[dict]) -> list[dict]:
 def collect_trend_exceeds(candles: list[dict], lines: list[dict]) -> list[dict]:
     hits = []
     for line in lines:
+        if find_trend_reclaim(candles, line):
+            continue
         exc = find_trend_exceed(candles, line)
         if not exc:
             continue
@@ -392,6 +396,37 @@ def collect_trend_exceeds(candles: list[dict], lines: list[dict]) -> list[dict]:
             "level": exc["price"],
             "close": exc["close"],
             "exceed_bars": exc["bars"],
+        }
+        hits.append(_trend_hit_extras(line, hit))
+    return hits
+
+
+def collect_trend_reclaims(candles: list[dict], lines: list[dict]) -> list[dict]:
+    hits = []
+    for line in lines:
+        rec = find_trend_reclaim(candles, line)
+        if not rec:
+            continue
+        kind = line.get("label") or line["type"]
+        if kind == "creek":
+            label = "Creek 超出後站回"
+        elif kind == "ice":
+            label = "Ice 超出後站回"
+        elif line["type"] == "resistance":
+            label = "阻力趨勢線超出後站回"
+        else:
+            label = "支撐趨勢線超出後站回"
+        if line.get("is_channel"):
+            label = "通道" + label
+        hit = {
+            "kind": "trend_reclaim",
+            "label": label,
+            "type": line["type"],
+            "time": rec["time"],
+            "index": rec["index"],
+            "level": rec["price"],
+            "close": rec["close"],
+            "exceed_bars": rec["bars"],
         }
         hits.append(_trend_hit_extras(line, hit))
     return hits
@@ -541,9 +576,10 @@ def scan_job(job: dict[str, str]) -> dict:
         lines_e = lines
         trend = collect_trend_touches(candles, lines)
         exceed = collect_trend_exceeds(candles, lines)
+        reclaim = collect_trend_reclaims(candles, lines)
         trend_e = trend
         exceed_e = exceed
-        events = late + late_lb + near + trend + exceed
+        events = late + late_lb + near + trend + exceed + reclaim
         events_e200 = trend_e + exceed_e
         for ev in events + events_e200:
             ev["timeframe"] = timeframe
@@ -670,6 +706,7 @@ def hit_counts(hits: list[dict]) -> dict[str, int]:
         "ar_dr_near": sum(1 for h in hits if h["kind"] == "ar_dr_near"),
         "trend_touch": sum(1 for h in hits if h["kind"] == "trend_touch"),
         "trend_exceed": sum(1 for h in hits if h["kind"] == "trend_exceed"),
+        "trend_reclaim": sum(1 for h in hits if h["kind"] == "trend_reclaim"),
         "hits": len(hits),
     }
 
@@ -797,6 +834,7 @@ def render_html(payload: dict, pool: str = "twse") -> str:
     ar_near.sort(key=lambda h: int(h.get("bars_after_signal") or 0), reverse=True)
     trend = [h for h in hits if h["kind"] == "trend_touch"]
     exceed = [h for h in hits if h["kind"] == "trend_exceed"]
+    reclaim = [h for h in hits if h["kind"] == "trend_reclaim"]
     hc = hit_counts(hits)
     ok = sum(1 for r in results if not r.get("error"))
     jobs_n = len(results)
@@ -911,6 +949,9 @@ def render_html(payload: dict, pool: str = "twse") -> str:
             "</tr>"
         )
 
+    def row_reclaim(h: dict) -> str:
+        return row_exceed(h)
+
     catalog = build_symbol_catalog(results, payload.get("charts") or {})
     embed_js = (
         "<script>window.CHART_PACKS = {};"
@@ -951,12 +992,18 @@ def render_html(payload: dict, pool: str = "twse") -> str:
       <div class="card"><div class="lbl">AR/AD 接近</div><div class="val">{hc['ar_dr_near']}</div></div>
       <div class="card"><div class="lbl">趨勢線觸碰</div><div class="val">{hc['trend_touch']}</div></div>
       <div class="card"><div class="lbl">趨勢線超出</div><div class="val">{hc['trend_exceed']}</div></div>
+      <div class="card"><div class="lbl">超出後站回</div><div class="val">{hc['trend_reclaim']}</div></div>
     </div>
 
-    <h2>趨勢線超出（近 {TREND_SIGNAL_BARS} 根 · 與觸碰互斥）</h2>
+    <h2>趨勢線超出（近 {TREND_SIGNAL_BARS} 根 · 與觸碰／站回互斥）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="exceed">{rows(exceed, "目前無超出信號", 8, row_exceed)}</tbody></table></div>
+
+    <h2>趨勢線超出後站回（近 {TREND_SIGNAL_BARS} 根曾超出，任意 1 根收盤站回）</h2>
+    <div class="panel"><table><thead><tr>
+      <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">超出根</th><th>時間</th>
+    </tr></thead><tbody data-section="reclaim">{rows(reclaim, "目前無超出後站回", 8, row_reclaim)}</tbody></table></div>
 
     <h2>AR / AD 觸碰（超過 20 根日 K 後 · 最近 2 根）</h2>
     <div class="panel"><table><thead><tr>
@@ -973,7 +1020,7 @@ def render_html(payload: dict, pool: str = "twse") -> str:
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">差距</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="ar_near">{rows(ar_near, "目前無符合條件的接近未觸（200 根內 · 根數 ≥ 60）", 9, row_ar_near)}</tbody></table></div>
 
-    <h2>趨勢線觸碰（近 {TREND_SIGNAL_BARS} 根 · 有突破不標）</h2>
+    <h2>趨勢線觸碰（近 {TREND_SIGNAL_BARS} 根 · 有突破或站回不標）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th>時間</th>
     </tr></thead><tbody data-section="trend">{rows(trend, "目前無趨勢線觸碰", 7, row_trend)}</tbody></table></div>
@@ -1094,6 +1141,7 @@ def render_charts_html(payload: dict, items: list[dict]) -> str:
     <div class="pool-filters" id="chartsKindFilters" role="group" aria-label="訊號類型">
       <button type="button" data-kind="all" class="active">全部</button>
       <button type="button" data-kind="trend_exceed">趨勢超出</button>
+      <button type="button" data-kind="trend_reclaim">超出站回</button>
       <button type="button" data-kind="ar_dr_touch">AR/AD 觸碰</button>
       <button type="button" data-kind="ar_dr_late_touch">AR/AD 晚觸</button>
       <button type="button" data-kind="ar_dr_near">AR/AD 接近</button>
@@ -1393,6 +1441,7 @@ def main() -> int:
             "ar_dr_near": sum(1 for h in hits if h["kind"] == "ar_dr_near"),
             "trend_touch": sum(1 for h in hits if h["kind"] == "trend_touch"),
             "trend_exceed": sum(1 for h in hits if h["kind"] == "trend_exceed"),
+            "trend_reclaim": sum(1 for h in hits if h["kind"] == "trend_reclaim"),
             "trend_touch_e200": sum(1 for h in hits_e200 if h["kind"] == "trend_touch"),
             "trend_exceed_e200": sum(1 for h in hits_e200 if h["kind"] == "trend_exceed"),
             "hits": len(hits),

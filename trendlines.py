@@ -23,6 +23,8 @@ Channel
 
 Signals (last 5 bars)
   Break and touch are mutually exclusive: a break suppresses the touch.
+  Reclaim: a break in the window and any later bar (including the same bar)
+  closes back on the valid side; reclaim, break, and touch are mutually exclusive.
 """
 
 from __future__ import annotations
@@ -468,6 +470,62 @@ def find_trend_exceed(
         "price": lp,
         "index": i,
         "close": c["close"],
+        "bars": bars,
+    }
+
+
+def close_back_on_line(c: dict, lp: float, resistance: bool) -> bool:
+    if resistance:
+        return float(c["close"]) <= lp
+    return float(c["close"]) >= lp
+
+
+def find_trend_reclaim(candles: list[dict], line: dict) -> dict | None:
+    """Break in the latest TREND_SIGNAL_BARS, then any one close back on the valid side."""
+    if not candles:
+        return None
+    p1 = line["p1"]
+    slope = line["slope"]
+    resistance = line["type"] == "resistance"
+    last_i = len(candles) - 1
+    hist_end = max(p1["index"] + 1, last_i - TREND_SIGNAL_BARS)
+    if hist_end >= p1["index"] + 1:
+        body_n, wick_n = pierce_counts(
+            candles, p1, slope, resistance, p1["index"] + 1, hist_end
+        )
+        if body_n > BODY_BREAK_MAX or wick_n > WICK_BREAK_MAX:
+            return None
+    lo, last = _signal_range(len(candles))
+    lo = max(lo, p1["index"] + 1)
+    if lo > last:
+        return None
+    first_ex = None
+    bars = 0
+    for i in range(lo, last + 1):
+        lp = line_price(p1, slope, i)
+        c = candles[i]
+        if body_full_cross(c, lp, resistance) or wick_only_cross(c, lp, resistance):
+            bars += 1
+            if first_ex is None:
+                first_ex = i
+    if first_ex is None or bars < 1:
+        return None
+    rec_i = None
+    for i in range(first_ex, last + 1):
+        lp = line_price(p1, slope, i)
+        c = candles[i]
+        if not body_full_cross(c, lp, resistance) and close_back_on_line(c, lp, resistance):
+            rec_i = i
+            break
+    if rec_i is None:
+        return None
+    c_rec = candles[rec_i]
+    lp_rec = line_price(p1, slope, rec_i)
+    return {
+        "time": c_rec["time"],
+        "price": lp_rec,
+        "index": rec_i,
+        "close": c_rec["close"],
         "bars": bars,
     }
 

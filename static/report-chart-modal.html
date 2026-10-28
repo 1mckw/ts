@@ -125,6 +125,10 @@
       if (type === "resistance") return "阻力超出";
       if (type === "support") return "支撐超出";
     }
+    if (kind === "trend_reclaim") {
+      if (type === "resistance") return "阻力超出後站回";
+      if (type === "support") return "支撐超出後站回";
+    }
     if (type === "resistance") return "阻力線";
     if (type === "support") return "支撐線";
     return type || "觸碰";

@@ -55,7 +55,7 @@ h1 {
 .meta strong { color: var(--gold-soft); font-weight: 600; }
 .cards {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0;
   margin-bottom: 28px;
   background: var(--paper);
