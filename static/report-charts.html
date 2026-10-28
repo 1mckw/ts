@@ -98,7 +98,7 @@
       return;
     }
     try {
-      live.set(tile, window.TWChartPack.createPackChart(body, pack, { interactive: false }));
+      live.set(tile, window.TWChartPack.createPackChart(body, pack, { interactive: false, maxBars: 200 }));
     } catch (_) {
       body.innerHTML = '<div class="chart-tile-empty">繪製失敗</div>';
     }

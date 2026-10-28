@@ -237,6 +237,12 @@
     return active ? `rgba(${rgb},1)` : `rgba(${rgb},0.35)`;
   }
 
+  function takeLastBars(candles, maxBars) {
+    const n = Number(maxBars);
+    if (!n || n <= 0 || candles.length <= n) return candles;
+    return candles.slice(-n);
+  }
+
   function normalizeCandles(candles) {
     const out = [];
     let prev = null;
@@ -256,7 +262,7 @@
 
   function createPackChart(hostEl, pack, options) {
     const interactive = !options || options.interactive !== false;
-    const candles = normalizeCandles(pack.candles || []);
+    const candles = takeLastBars(normalizeCandles(pack.candles || []), options && options.maxBars);
     if (!candles.length) throw new Error("no candles");
 
     const chart = LightweightCharts.createChart(hostEl, {
@@ -286,6 +292,8 @@
       borderDownColor: "#ff4d6d",
       wickUpColor: "#5dffb1",
       wickDownColor: "#ff7a90",
+      lastValueVisible: interactive,
+      priceLineVisible: interactive,
     });
     series.setData(candles);
 
@@ -398,7 +406,7 @@
     destroyChart();
     lwcEl.hidden = false;
     frameEl.hidden = true;
-    liveModal = createPackChart(lwcEl, pack, { interactive: true });
+    liveModal = createPackChart(lwcEl, pack, { interactive: true, maxBars: 600 });
   }
 
   function renderTradingView(group, symbol, tf, opts) {
