@@ -45,7 +45,6 @@ CHART_BARS = 600
 TREND_SIGNAL_BARS = 5
 MAX_RESISTANCE = 1
 MAX_SUPPORT = 1
-BEST_TOUCH_LOOKBACK = 200
 TREND_EXCEED_MIN_BARS = 1
 TREND_EXCEED_MAX_BARS = TREND_SIGNAL_BARS
 TREND_EXCEED_BARS = TREND_EXCEED_MAX_BARS
@@ -183,6 +182,26 @@ def _pack_anchors(anchors: list[dict]) -> list[dict]:
     return packed
 
 
+def _pack_touch_points(
+    candles: list[dict], indices: list[int], p1: dict, slope: float
+) -> list[dict]:
+    packed: list[dict] = []
+    seen: set[int] = set()
+    for i in indices:
+        t = int(candles[i]["time"])
+        if t in seen:
+            continue
+        seen.add(t)
+        packed.append(
+            {
+                "index": int(i),
+                "time": t,
+                "price": float(line_price(p1, slope, i)),
+            }
+        )
+    return packed
+
+
 def evaluate_candidate(
     candles: list[dict],
     p_anchor: dict,
@@ -244,6 +263,7 @@ def evaluate_candidate(
         "body_breaks": body_n,
         "wick_breaks": wick_n,
         "anchors": _pack_anchors(anchors or [p_anchor]),
+        "touches": _pack_touch_points(candles, seg, p1, out_slope),
     }
 
 
@@ -388,14 +408,6 @@ def build_auto_trend_lines(
     return _collect_side_lines(
         candles, piv_high, True, win_lo, lookback
     ) + _collect_side_lines(candles, piv_low, False, win_lo, lookback)
-
-
-def build_best_touch_line(candles: list[dict]) -> dict | None:
-    """Single max-touch line in the latest 200 daily bars (broken OK; drawn blue)."""
-    lines = build_auto_trend_lines(candles, BEST_TOUCH_LOOKBACK)
-    if not lines:
-        return None
-    return max(lines, key=_score)
 
 
 def check_line_invalidation(candles: list[dict], line: dict) -> bool:

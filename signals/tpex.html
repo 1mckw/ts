@@ -1174,7 +1174,6 @@ a:hover { color: var(--gold-soft); }
   const LINE_W = 1;
   const SUPPORT_COLOR = "34,197,94";      // 上升支撐 · 綠
   const RESISTANCE_COLOR = "239,68,68";   // 下降阻力 · 紅
-  const BEST_TOUCH_COLOR = "rgba(59,130,246,0.95)"; // 200D 最多觸碰 · 藍
 
   function drawSegment(t0, p0, t1, p1, color, width, style) {
     if (t0 == null || t1 == null || t0 === t1) return;
@@ -1199,10 +1198,10 @@ a:hover { color: var(--gold-soft); }
     return set;
   }
 
-  function visibleAnchors(anchors, times) {
+  function visiblePoints(points, times) {
     const pts = [];
     const seen = new Set();
-    for (const a of anchors || []) {
+    for (const a of points || []) {
       const t = a && a.time;
       const px = a && a.price;
       if (t == null || px == null || !times.has(t) || seen.has(t)) continue;
@@ -1213,7 +1212,7 @@ a:hover { color: var(--gold-soft); }
     return pts;
   }
 
-  function drawAnchorPair(pts, color, candles) {
+  function drawTouchPoints(pts, color, candles) {
     if (!pts.length) return;
     let data = pts;
     if (pts.length === 1) {
@@ -1231,13 +1230,12 @@ a:hover { color: var(--gold-soft); }
     }
     const s = chart.addLineSeries({
       color,
-      lineWidth: 1,
-      lineStyle: LightweightCharts.LineStyle.Dotted,
+      lineWidth: 0,
       priceLineVisible: false,
       lastValueVisible: false,
       crosshairMarkerVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 5,
+      pointMarkersRadius: 2,
     });
     s.setData(data);
     overlays.push(s);
@@ -1314,30 +1312,15 @@ a:hover { color: var(--gold-soft); }
       ? (pack.trend_lines_expand || pack.trend_lines || [])
       : (pack.trend_lines || []);
     const times = candleTimes(candles);
-    const markers = [];
-    const markerTimes = new Set();
     const maxTouchByType = {};
     trendLines.forEach((line) => {
       const t = line.type || "";
       const n = Number(line.pivot_count) || 0;
       maxTouchByType[t] = Math.max(maxTouchByType[t] || 0, n);
     });
-    function addAnchorVisual(line, rgb, alpha) {
-      const pts = visibleAnchors(line.anchors, times);
-      const color = `rgba(${rgb},${alpha})`;
-      drawAnchorPair(pts, color, candles);
-      const resistance = line.type === "resistance";
-      pts.forEach((p, i) => {
-        if (markerTimes.has(p.time)) return;
-        markerTimes.add(p.time);
-        markers.push({
-          time: p.time,
-          position: resistance ? "aboveBar" : "belowBar",
-          color,
-          shape: "circle",
-          text: pts.length > 1 ? "錨" + (i + 1) : "錨",
-        });
-      });
+    function addTouchVisual(line, rgb, alpha) {
+      const pts = visiblePoints(line.touches, times);
+      drawTouchPoints(pts, `rgba(${rgb},${alpha})`, candles);
     }
     trendLines.forEach((line) => {
       const maxTouch = maxTouchByType[line.type] || 0;
@@ -1354,26 +1337,8 @@ a:hover { color: var(--gold-soft); }
         ? LightweightCharts.LineStyle.Dashed
         : LightweightCharts.LineStyle.Solid;
       drawSegment(line.p1.time, line.p1.price, line.endTime, line.endPrice, color, LINE_W, style);
-      addAnchorVisual(line, rgb, alpha);
+      addTouchVisual(line, rgb, alpha);
     });
-
-    // 200D 最多觸碰線（藍）— 最後畫，疊在綠/紅之上
-    const bestTouch = pack.best_touch_line;
-    if (bestTouch) {
-      drawSegment(
-        bestTouch.p1.time,
-        bestTouch.p1.price,
-        bestTouch.endTime,
-        bestTouch.endPrice,
-        BEST_TOUCH_COLOR,
-        LINE_W,
-      );
-      addAnchorVisual(bestTouch, "59,130,246", 0.95);
-    }
-    if (markers.length) {
-      markers.sort((a, b) => a.time - b.time);
-      series.setMarkers(markers);
-    }
 
     (pack.rays || []).forEach((ray) => {
       drawRaySegments(ray);
@@ -1418,13 +1383,6 @@ a:hover { color: var(--gold-soft); }
         .map((l) => Number(l.search_lookback) || 0)
         .filter((n) => n > 0);
       if (lbs.length) bits.push("搜尋 " + Math.max.apply(null, lbs) + "K");
-    }
-    const best = pack.best_touch_line;
-    if (best) {
-      const n = Number(best.pivot_count) || 0;
-      bits.push(`藍線200D ${n}觸`);
-    } else {
-      bits.push("藍線200D 無");
     }
     return bits.join(" · ");
   }
@@ -1475,17 +1433,10 @@ a:hover { color: var(--gold-soft); }
       } else {
         const rayN = pack && pack.rays ? pack.rays.length : 0;
         const tlN = pack && pack.trend_lines ? pack.trend_lines.length : 0;
-        const bestN =
-          pack && pack.best_touch_line
-            ? Number(pack.best_touch_line.pivot_count) || 0
-            : null;
         subEl.innerHTML =
           `${escapeHtml(name)} · ${escapeHtml(group)} · ${escapeHtml(typeLabel(type, kind))}` +
           (level ? ` · Level <strong>${escapeHtml(fmtLevel(level))}</strong>` : "") +
-          (pack
-            ? ` · AR/AD ${rayN} · 趨勢線 ${tlN}` +
-              (bestN != null ? ` · 藍線200D ${bestN}觸` : "")
-            : "");
+          (pack ? ` · AR/AD ${rayN} · 趨勢線 ${tlN}` : "");
       }
 
       if (pack && pack.candles && pack.candles.length) {

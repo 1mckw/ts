@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import html
 import json
 import os
@@ -69,7 +70,6 @@ EXPAND_WINDOWS = tl.EXPAND_WINDOWS
 CHART_BARS = tl.CHART_BARS
 build_auto_trend_lines = tl.build_auto_trend_lines
 build_auto_trend_lines_expanding = tl.build_auto_trend_lines_expanding
-build_best_touch_line = tl.build_best_touch_line
 check_line_invalidation = tl.check_line_invalidation
 find_trend_touch = tl.find_trend_touch
 find_trend_exceed = tl.find_trend_exceed
@@ -313,10 +313,10 @@ def collect_trend_exceeds(candles: list[dict], lines: list[dict]) -> list[dict]:
     return hits
 
 
-def serialize_anchors(line: dict) -> list[dict]:
+def serialize_points(line: dict, key: str) -> list[dict]:
     out: list[dict] = []
     seen: set[int] = set()
-    for a in line.get("anchors") or []:
+    for a in line.get(key) or []:
         try:
             t = int(a["time"])
             px = float(a["price"])
@@ -327,6 +327,14 @@ def serialize_anchors(line: dict) -> list[dict]:
         seen.add(t)
         out.append({"time": t, "price": px})
     return out
+
+
+def serialize_anchors(line: dict) -> list[dict]:
+    return serialize_points(line, "anchors")
+
+
+def serialize_touches(line: dict) -> list[dict]:
+    return serialize_points(line, "touches")
 
 
 def serialize_trend_lines(candles: list[dict], lines: list[dict]) -> list[dict]:
@@ -343,9 +351,9 @@ def serialize_trend_lines(candles: list[dict], lines: list[dict]) -> list[dict]:
             "invalidated": invalidated,
             "pivot_count": int(line.get("pivot_count") or 0),
         }
-        anchors = serialize_anchors(line)
-        if anchors:
-            item["anchors"] = anchors
+        touches = serialize_touches(line)
+        if touches:
+            item["touches"] = touches
         if line.get("search_lookback") is not None:
             item["search_lookback"] = int(line["search_lookback"])
         if line.get("label"):
@@ -362,7 +370,6 @@ def chart_pack_start_index(
     candles: list[dict],
     lines: list[dict],
     chart_bars: int,
-    best_touch_line: dict | None = None,
 ) -> int:
     """Fixed last chart_bars (600)."""
     return max(0, len(candles) - chart_bars)
@@ -375,9 +382,8 @@ def build_chart_pack(
     chart_bars: int = 600,
     lines_expand: list[dict] | None = None,
 ) -> dict:
-    best_touch = build_best_touch_line(candles)
     all_lines = list(lines) + list(lines_expand or [])
-    start_idx = chart_pack_start_index(candles, all_lines, chart_bars, best_touch)
+    start_idx = chart_pack_start_index(candles, all_lines, chart_bars)
     trimmed = candles[start_idx:]
     if not trimmed:
         return {
@@ -385,7 +391,6 @@ def build_chart_pack(
             "rays": [],
             "trend_lines": [],
             "trend_lines_expand": [],
-            "best_touch_line": None,
         }
 
     t_min = int(trimmed[0]["time"])
@@ -407,22 +412,6 @@ def build_chart_pack(
             ray["type"] = normalize_signal_type(ray.get("type"))
             rays.append(ray)
 
-    best_touch_line = None
-    if best_touch is not None:
-        end_time, end_price = line_end_at_break(candles, best_touch)
-        best_touch_line = {
-            "type": best_touch["type"],
-            "p1": {"time": int(best_touch["p1"]["time"]), "price": float(best_touch["p1"]["price"])},
-            "p2": {"time": int(best_touch["p2"]["time"]), "price": float(best_touch["p2"]["price"])},
-            "endTime": int(end_time),
-            "endPrice": float(end_price),
-            "invalidated": check_line_invalidation(candles, best_touch),
-            "pivot_count": int(best_touch.get("pivot_count") or 0),
-        }
-        bt_anchors = serialize_anchors(best_touch)
-        if bt_anchors:
-            best_touch_line["anchors"] = bt_anchors
-
     return {
         "candles": [
             {
@@ -437,7 +426,6 @@ def build_chart_pack(
         "rays": rays,
         "trend_lines": serialize_trend_lines(candles, lines),
         "trend_lines_expand": serialize_trend_lines(candles, lines_expand or []),
-        "best_touch_line": best_touch_line,
     }
 
 
@@ -1193,9 +1181,51 @@ def render_watchlist_html(payload: dict, items: list[dict]) -> str:
 """
 
 
+def filter_watchlist_jobs(base_jobs: list[dict[str, str]]) -> list[dict[str, str]]:
+    by_sym = {j["symbol"]: j for j in base_jobs if j.get("symbol")}
+    out: list[dict[str, str]] = []
+    missing: list[str] = []
+    for code in WATCHLIST_SYMBOLS:
+        job = by_sym.get(code)
+        if job:
+            out.append(job)
+        else:
+            missing.append(code)
+    if missing:
+        print(f"Watchlist missing from universe: {', '.join(missing)}", flush=True)
+    return out
+
+
+def merge_chart_packs(new_charts: dict[str, dict]) -> dict[str, dict]:
+    charts = dict(new_charts)
+    if os.path.isfile(CHART_PACKS_PATH):
+        try:
+            prev = json.load(open(CHART_PACKS_PATH, encoding="utf-8"))
+            old = prev.get("charts") or {}
+            if isinstance(old, dict):
+                merged = dict(old)
+                merged.update(charts)
+                charts = merged
+        except (OSError, json.JSONDecodeError):
+            pass
+    return charts
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Taiwan AR/AD + trend-line scanner")
+    parser.add_argument(
+        "--watchlist",
+        action="store_true",
+        help="只掃自選股，更新 watchlist.html 與對應 chart packs",
+    )
+    args = parser.parse_args()
+    watchlist_only = bool(args.watchlist)
+
     os.makedirs(OUT_DIR, exist_ok=True)
     base_jobs = build_scan_jobs()
+    if watchlist_only:
+        base_jobs = filter_watchlist_jobs(base_jobs)
+        print(f"Watchlist-only: {len(base_jobs)} symbols", flush=True)
     jobs: list[dict[str, str]] = []
     for job in base_jobs:
         for tf in TIMEFRAME_ORDER:
@@ -1306,8 +1336,13 @@ def main() -> int:
         "watchlist": build_watchlist_items(WATCHLIST_SYMBOLS, slim_results, hits, charts),
     }
 
-    with open(os.path.join(OUT_DIR, "latest.json"), "w", encoding="utf-8") as f:
-        json.dump({k: v for k, v in payload.items() if k != "charts"}, f, ensure_ascii=False, indent=2)
+    if watchlist_only:
+        charts = merge_chart_packs(charts)
+        payload["charts"] = charts
+
+    if not watchlist_only:
+        with open(os.path.join(OUT_DIR, "latest.json"), "w", encoding="utf-8") as f:
+            json.dump({k: v for k, v in payload.items() if k != "charts"}, f, ensure_ascii=False, indent=2)
 
     with open(CHART_PACKS_PATH, "w", encoding="utf-8") as f:
         json.dump(
@@ -1317,19 +1352,20 @@ def main() -> int:
             separators=(",", ":"),
         )
 
-    twse_page = render_html(payload, "twse")
-    tpex_page = render_html(payload, "tpex")
     wl_page = render_watchlist_html(payload, payload["watchlist"])
-    trend200_page = render_trend200_html(payload)
-    for name in ("latest.html", "index.html"):
-        with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8") as f:
-            f.write(twse_page)
-    with open(os.path.join(OUT_DIR, "tpex.html"), "w", encoding="utf-8") as f:
-        f.write(tpex_page)
     with open(os.path.join(OUT_DIR, "watchlist.html"), "w", encoding="utf-8") as f:
         f.write(wl_page)
-    with open(os.path.join(OUT_DIR, "trend200.html"), "w", encoding="utf-8") as f:
-        f.write(trend200_page)
+    if not watchlist_only:
+        twse_page = render_html(payload, "twse")
+        tpex_page = render_html(payload, "tpex")
+        trend200_page = render_trend200_html(payload)
+        for name in ("latest.html", "index.html"):
+            with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8") as f:
+                f.write(twse_page)
+        with open(os.path.join(OUT_DIR, "tpex.html"), "w", encoding="utf-8") as f:
+            f.write(tpex_page)
+        with open(os.path.join(OUT_DIR, "trend200.html"), "w", encoding="utf-8") as f:
+            f.write(trend200_page)
 
     errs = [r for r in slim_results if r.get("error")]
     if errs:
