@@ -409,13 +409,13 @@ def collect_trend_reclaims(candles: list[dict], lines: list[dict]) -> list[dict]
             continue
         kind = line.get("label") or line["type"]
         if kind == "creek":
-            label = "Creek 超出後站回"
+            label = "Creek 實體超出後站回"
         elif kind == "ice":
-            label = "Ice 超出後站回"
+            label = "Ice 實體超出後站回"
         elif line["type"] == "resistance":
-            label = "阻力趨勢線超出後站回"
+            label = "阻力趨勢線實體超出後站回"
         else:
-            label = "支撐趨勢線超出後站回"
+            label = "支撐趨勢線實體超出後站回"
         if line.get("is_channel"):
             label = "通道" + label
         hit = {
@@ -992,7 +992,7 @@ def render_html(payload: dict, pool: str = "twse") -> str:
       <div class="card"><div class="lbl">AR/AD 接近</div><div class="val">{hc['ar_dr_near']}</div></div>
       <div class="card"><div class="lbl">趨勢線觸碰</div><div class="val">{hc['trend_touch']}</div></div>
       <div class="card"><div class="lbl">趨勢線超出</div><div class="val">{hc['trend_exceed']}</div></div>
-      <div class="card"><div class="lbl">超出後站回</div><div class="val">{hc['trend_reclaim']}</div></div>
+      <div class="card"><div class="lbl">實體超出站回</div><div class="val">{hc['trend_reclaim']}</div></div>
     </div>
 
     <h2>趨勢線超出（近 {TREND_SIGNAL_BARS} 根 · 與觸碰／站回互斥）</h2>
@@ -1000,10 +1000,10 @@ def render_html(payload: dict, pool: str = "twse") -> str:
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">根數</th><th>時間</th>
     </tr></thead><tbody data-section="exceed">{rows(exceed, "目前無超出信號", 8, row_exceed)}</tbody></table></div>
 
-    <h2>趨勢線超出後站回（近 {TREND_SIGNAL_BARS} 根曾超出，任意 1 根收盤站回）</h2>
+    <h2>趨勢線實體超出後站回（近 {TREND_SIGNAL_BARS} 根實體超出，之後任一根實體站回）</h2>
     <div class="panel"><table><thead><tr>
       <th>類型</th><th>週期</th><th>池</th><th>代碼</th><th>名稱</th><th class="num">價位</th><th class="num">超出根</th><th>時間</th>
-    </tr></thead><tbody data-section="reclaim">{rows(reclaim, "目前無超出後站回", 8, row_reclaim)}</tbody></table></div>
+    </tr></thead><tbody data-section="reclaim">{rows(reclaim, "目前無實體超出後站回", 8, row_reclaim)}</tbody></table></div>
 
     <h2>AR / AD 觸碰（超過 20 根日 K 後 · 最近 2 根）</h2>
     <div class="panel"><table><thead><tr>
@@ -1141,7 +1141,7 @@ def render_charts_html(payload: dict, items: list[dict]) -> str:
     <div class="pool-filters" id="chartsKindFilters" role="group" aria-label="訊號類型">
       <button type="button" data-kind="all" class="active">全部</button>
       <button type="button" data-kind="trend_exceed">趨勢超出</button>
-      <button type="button" data-kind="trend_reclaim">超出站回</button>
+      <button type="button" data-kind="trend_reclaim">實體超出站回</button>
       <button type="button" data-kind="ar_dr_touch">AR/AD 觸碰</button>
       <button type="button" data-kind="ar_dr_late_touch">AR/AD 晚觸</button>
       <button type="button" data-kind="ar_dr_near">AR/AD 接近</button>

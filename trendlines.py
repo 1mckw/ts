@@ -23,8 +23,8 @@ Channel
 
 Signals (last 5 bars)
   Break and touch are mutually exclusive: a break suppresses the touch.
-  Reclaim: a break in the window and any later bar (including the same bar)
-  closes back on the valid side; reclaim, break, and touch are mutually exclusive.
+  Reclaim: a full-body break in the window then any later bar whose body
+  is fully back on the valid side; reclaim, break, and touch are mutually exclusive.
 """
 
 from __future__ import annotations
@@ -474,14 +474,15 @@ def find_trend_exceed(
     }
 
 
-def close_back_on_line(c: dict, lp: float, resistance: bool) -> bool:
+def body_back_on_line(c: dict, lp: float, resistance: bool) -> bool:
+    bhi, blo = body_hi_lo(c)
     if resistance:
-        return float(c["close"]) <= lp
-    return float(c["close"]) >= lp
+        return bhi <= lp
+    return blo >= lp
 
 
 def find_trend_reclaim(candles: list[dict], line: dict) -> dict | None:
-    """Break in the latest TREND_SIGNAL_BARS, then any one close back on the valid side."""
+    """Full-body break in the latest TREND_SIGNAL_BARS, then any later bar with body fully back."""
     if not candles:
         return None
     p1 = line["p1"]
@@ -503,18 +504,16 @@ def find_trend_reclaim(candles: list[dict], line: dict) -> dict | None:
     bars = 0
     for i in range(lo, last + 1):
         lp = line_price(p1, slope, i)
-        c = candles[i]
-        if body_full_cross(c, lp, resistance) or wick_only_cross(c, lp, resistance):
+        if body_full_cross(candles[i], lp, resistance):
             bars += 1
             if first_ex is None:
                 first_ex = i
     if first_ex is None or bars < 1:
         return None
     rec_i = None
-    for i in range(first_ex, last + 1):
+    for i in range(first_ex + 1, last + 1):
         lp = line_price(p1, slope, i)
-        c = candles[i]
-        if not body_full_cross(c, lp, resistance) and close_back_on_line(c, lp, resistance):
+        if body_back_on_line(candles[i], lp, resistance):
             rec_i = i
             break
     if rec_i is None:
