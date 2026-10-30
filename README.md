@@ -8,6 +8,7 @@ GitHub Pages 每小時掃描 **台股上市、上櫃** 及 **加權指數** 日 
 - 上櫃：https://1mckw.github.io/ts/tpex.html
 - 自選：https://1mckw.github.io/ts/watchlist.html
 - 圖表：https://1mckw.github.io/ts/charts.html（全部 Chart Pack）
+- 換算：https://1mckw.github.io/ts/taiex.html（TAIEX / 台指期 → 0050、0050反）
 - JSON：`/latest.json`
 
 ## 商品池
@@ -64,6 +65,9 @@ Repo → **Actions** → **Hourly TW Alerts (上市 + 上櫃)** → **Run workfl
 
 ```bash
 python scan_signals.py
+python taiex_0050.py
 ```
 
 商品清單：`universe.py` · 自選：`watchlist.py`（`scripts/fetch_tw_stocks.py` 可輸出靜態快照）
+
+**換算頁：** 近 60 日 Yahoo `^TWII`／`0050.TW`／`00632R.TW` 對齊收盤做價差／倍率／迴歸；現貨與台指期優先 TradingView（`INDEX:TAIEX`、`TXF1!`）。輸出 `signals/taiex.html`、`signals/taiex-0050.json`。邏輯來源 [TAIEX20050](https://github.com/1mckw/TAIEX20050)。

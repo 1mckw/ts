@@ -1,0 +1,61 @@
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: .82rem;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+.taiex-page .panel { padding: 18px 20px 22px; }
+.taiex-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.field-compact { display: flex; flex-direction: column; gap: 6px; }
+.field-compact select,
+.taiex-grid input {
+  font: inherit;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--bg);
+  color: var(--text);
+}
+.taiex-btn {
+  font: inherit;
+  cursor: pointer;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 2px;
+  border: 1px solid var(--gold);
+  background: var(--gold);
+  color: var(--ink);
+  font-size: .86rem;
+}
+.taiex-btn.ghost {
+  background: transparent;
+  color: var(--gold-soft);
+  margin-top: 12px;
+}
+.taiex-btn:hover { filter: brightness(1.05); }
+.taiex-btn:disabled { opacity: .5; cursor: wait; }
+.taiex-block h2 { margin-top: 18px; }
+.taiex-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.taiex-grid label { display: flex; flex-direction: column; gap: 6px; }
+.conversion-note { margin: 10px 0 0; color: var(--muted); font-size: .86rem; }
+.cards.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.taiex-page .cards { margin-bottom: 0; }
+@media (max-width: 700px) {
+  .taiex-grid { grid-template-columns: 1fr; }
+  .status-bar { flex-direction: column; }
+}

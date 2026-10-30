@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>台股 · TAIEX → 0050 換算</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+:root {
+  --ink: #12161d;
+  --paper: #1a202b;
+  --rule: #2e3644;
+  --text: #efe6d4;
+  --muted: #8d95a3;
+  --gold: #c9a05a;
+  --gold-soft: #e8d4a4;
+  --ar: #6fbf9a;
+  --ad: #d96a6e;
+  --creek: #7aa8c4;
+  --ice: #b9c9d6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { color-scheme: dark; }
+body {
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  background:
+    radial-gradient(1200px 480px at 12% -10%, rgba(201, 160, 90, .08), transparent 55%),
+    linear-gradient(180deg, #171c25 0%, var(--ink) 38%, #0e1218 100%);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 28px 20px 72px;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 119px,
+    rgba(201, 160, 90, .035) 119px,
+    rgba(201, 160, 90, .035) 120px
+  );
+  z-index: 0;
+}
+.wrap { max-width: 1180px; margin: 0 auto; position: relative; z-index: 1; }
+.masthead { margin-bottom: 8px; }
+h1 {
+  font-family: "Noto Serif TC", "Noto Serif CJK TC", serif;
+  font-size: clamp(1.45rem, 2.4vw, 1.9rem);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+}
+.meta {
+  color: var(--muted);
+  font-size: .88rem;
+  margin: 10px 0 20px;
+  line-height: 1.65;
+  max-width: 72ch;
+}
+.meta strong { color: var(--gold-soft); font-weight: 600; }
+.cards {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0;
+  margin-bottom: 28px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+}
+.cards.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) {
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards.cols-3 { grid-template-columns: 1fr; }
+}
+.card {
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--rule);
+  border-radius: 0;
+  padding: 14px 16px 16px;
+}
+.cards .card:last-child { border-right: 0; }
+@media (max-width: 900px) {
+  .card { border-bottom: 1px solid var(--rule); }
+  .cards .card:nth-child(even) { border-right: 0; }
+}
+.card .lbl {
+  font-size: .74rem;
+  color: var(--muted);
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+.card .val {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 1.28rem;
+  font-weight: 600;
+  margin-top: 8px;
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+.pool-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 20px; }
+.pool-filters button {
+  font: inherit;
+  cursor: pointer;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 2px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: .8rem;
+}
+.pool-filters button:hover { color: var(--text); border-color: var(--gold); }
+.pool-filters button.active {
+  color: var(--ink);
+  border-color: var(--gold);
+  background: var(--gold);
+}
+.pool-filters button:focus-visible,
+.page-nav a:focus-visible,
+.sym-btn:focus-visible,
+.search-fab:focus-visible,
+.modal-close:focus-visible,
+#symbolSearch:focus-visible,
+#symbolSearchClose:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+h2 {
+  font-family: "Noto Serif TC", serif;
+  font-size: 1.08rem;
+  font-weight: 700;
+  margin: 28px 0 10px;
+  padding-left: 12px;
+  border-left: 3px solid var(--gold);
+  line-height: 1.4;
+}
+.panel {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .84rem;
+  min-width: 640px;
+}
+th, td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(46, 54, 68, .9);
+}
+th {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 500;
+  background: rgba(18, 22, 29, .45);
+  position: sticky;
+  top: 0;
+}
+td.num, th.num {
+  text-align: right;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+tbody tr:hover { background: rgba(201, 160, 90, .07); }
+td.empty { text-align: center; color: var(--muted); padding: 28px; }
+code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--gold-soft);
+  font-size: .92em;
+}
+.tag {
+  display: inline-block;
+  font-size: .74rem;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.tag.ar { background: rgba(111, 191, 154, .14); color: var(--ar); }
+.tag.ad { background: rgba(217, 106, 110, .14); color: var(--ad); }
+.tag.resist { background: rgba(217, 106, 110, .14); color: var(--ad); }
+.tag.support { background: rgba(111, 191, 154, .14); color: var(--ar); }
+.tag.creek { background: rgba(122, 168, 196, .16); color: var(--creek); }
+.tag.ice { background: rgba(185, 201, 214, .16); color: var(--ice); }
+.sym-btn { background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
+.sym-btn:hover code { text-decoration: underline; text-underline-offset: 3px; }
+.muted { color: var(--muted); }
+footer { margin-top: 36px; color: var(--muted); font-size: .75rem; }
+a { color: var(--gold); }
+a:hover { color: var(--gold-soft); }
+.page-nav {
+  display: flex;
+  gap: 2px;
+  margin: 0 0 22px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--rule);
+}
+.page-nav a {
+  font-size: .92rem;
+  padding: 8px 14px 12px;
+  border-radius: 0;
+  text-decoration: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  margin-bottom: -1px;
+}
+.page-nav a:hover { color: var(--text); }
+.page-nav a.active {
+  color: var(--gold-soft);
+  border-bottom-color: var(--gold);
+  background: transparent;
+}
+.search-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 22px;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-radius: 2px;
+  border: 1px solid var(--gold);
+  background: rgba(18, 22, 29, .92);
+  color: var(--gold-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: .88rem;
+}
+.search-fab:hover { background: var(--gold); color: var(--ink); }
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  background: rgba(8, 10, 14, .82);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10vh 16px;
+}
+.search-overlay[hidden] { display: none !important; }
+.search-modal {
+  width: min(520px, 100%);
+  max-height: 70vh;
+  background: #1c232e;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.search-modal-head {
+  display: flex;
+  gap: 8px;
+  padding: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+#symbolSearch {
+  flex: 1;
+  height: 42px;
+  padding: 8px 14px;
+  border-radius: 2px;
+  border: 1px solid var(--rule);
+  background: var(--ink);
+  color: var(--text);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+#symbolSearchClose {
+  font: inherit;
+  cursor: pointer;
+  padding: 0 14px;
+  border-radius: 2px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--muted);
+}
+#symbolSearchClose:hover { color: var(--text); border-color: var(--gold); }
+#symbolList { list-style: none; margin: 0; padding: 8px; overflow-y: auto; flex: 1; }
+#symbolList li { padding: 10px 12px; border-radius: 2px; cursor: pointer; }
+#symbolList li:hover { background: rgba(201, 160, 90, .1); }
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 10, 14, .72);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+}
+.modal.open { opacity: 1; pointer-events: auto; }
+.modal-panel {
+  width: min(1100px, 100%);
+  height: min(720px, 92vh);
+  background: #1c232e;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.modal-title {
+  font-family: "Noto Serif TC", serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.modal-sub { color: var(--muted); font-size: .82rem; margin-top: 4px; }
+.modal-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 2px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+.modal-close:hover { border-color: var(--gold); color: var(--gold-soft); }
+.modal-chart { flex: 1; min-height: 0; position: relative; background: #0c1016; }
+.modal-chart #lwc,
+.modal-chart #tv-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.modal-status { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) {
+  .modal { transition: none; }
+}
+
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: .82rem;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+.taiex-page .panel { padding: 18px 20px 22px; }
+.taiex-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.field-compact { display: flex; flex-direction: column; gap: 6px; }
+.field-compact select,
+.taiex-grid input {
+  font: inherit;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--bg);
+  color: var(--text);
+}
+.taiex-btn {
+  font: inherit;
+  cursor: pointer;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 2px;
+  border: 1px solid var(--gold);
+  background: var(--gold);
+  color: var(--ink);
+  font-size: .86rem;
+}
+.taiex-btn.ghost {
+  background: transparent;
+  color: var(--gold-soft);
+  margin-top: 12px;
+}
+.taiex-btn:hover { filter: brightness(1.05); }
+.taiex-btn:disabled { opacity: .5; cursor: wait; }
+.taiex-block h2 { margin-top: 18px; }
+.taiex-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.taiex-grid label { display: flex; flex-direction: column; gap: 6px; }
+.conversion-note { margin: 10px 0 0; color: var(--muted); font-size: .86rem; }
+.cards.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.taiex-page .cards { margin-bottom: 0; }
+@media (max-width: 700px) {
+  .taiex-grid { grid-template-columns: 1fr; }
+  .status-bar { flex-direction: column; }
+}
+
+  </style>
+</head>
+<body>
+  <div class="wrap taiex-page">
+    <nav class="page-nav"><a href="index.html" class="">上市</a><a href="tpex.html" class="">上櫃</a><a href="watchlist.html" class="">自選</a><a href="charts.html" class="">圖表</a><a href="taiex.html" class="active">換算</a></nav>
+    <h1>台股 · TAIEX → 0050 / 0050反</h1>
+    <p class="meta">輸入加權或台指期，用近 60 日價差關係推算 0050 與 0050反。僅供參考。</p>
+    <div class="status-bar">
+      <span id="status">載入中…</span>
+      <span id="countdown" class="muted">--</span>
+    </div>
+    <div class="panel taiex-panel">
+      <div class="taiex-toolbar">
+        <label class="field-compact">
+          <span class="lbl">換算方法</span>
+          <select id="method">
+            <option value="spread" selected>價差法</option>
+            <option value="ratio">倍率法</option>
+            <option value="regression">迴歸法</option>
+          </select>
+        </label>
+        <button id="refresh-btn" type="button" class="taiex-btn">立即更新</button>
+      </div>
+      <div class="taiex-block">
+        <h2>輸入點位</h2>
+        <div class="pool-filters" id="modeTabs" role="tablist">
+          <button type="button" class="mode-tab active" data-mode="taiex">TAIEX</button>
+          <button type="button" class="mode-tab" data-mode="tx">台指期</button>
+        </div>
+        <div class="taiex-grid">
+          <label>
+            <span class="lbl" id="input-label">TAIEX 點位</span>
+            <input id="price-input" type="number" step="0.01" inputmode="decimal" placeholder="例如 23000" />
+          </label>
+          <label class="basis-field" id="basis-wrap" hidden>
+            <span class="lbl">基差（期貨 − 現貨）</span>
+            <input id="basis" type="number" step="1" inputmode="numeric" value="0" />
+          </label>
+        </div>
+        <p class="conversion-note" id="implied-taiex-line" hidden>
+          <span id="tx-source-line">台指期 --</span>
+          → 隱含 TAIEX <strong id="implied-taiex">--</strong>
+        </p>
+        <button type="button" id="latest-btn" class="taiex-btn ghost">帶入最新 TAIEX</button>
+      </div>
+      <div class="taiex-block">
+        <h2>推算結果</h2>
+        <div class="cards cols-2">
+          <div class="card">
+            <div class="lbl">0050</div>
+            <div class="val" id="implied-etf50">--</div>
+          </div>
+          <div class="card">
+            <div class="lbl">0050反</div>
+            <div class="val" id="implied-etf-inv">--</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <footer>
+      TAIEX / 台指期：TradingView · 0050 / 0050反：Yahoo Finance ·
+      工具來源 <a href="https://github.com/1mckw/TAIEX20050">TAIEX20050</a>
+    </footer>
+  </div>
+<script>
+const REFRESH_SEC = 60;
+const DATA_URL = "taiex-0050.json";
+const TX_LABEL = "台指期";
+
+let data = null;
+let inputMode = "taiex";
+let countdown = REFRESH_SEC;
+let timer = null;
+
+const els = {
+  status: document.getElementById("status"),
+  countdown: document.getElementById("countdown"),
+  input: document.getElementById("price-input"),
+  impliedEtf50: document.getElementById("implied-etf50"),
+  impliedEtfInv: document.getElementById("implied-etf-inv"),
+  inputLabel: document.getElementById("input-label"),
+  basisWrap: document.getElementById("basis-wrap"),
+  basis: document.getElementById("basis"),
+  impliedTaiexLine: document.getElementById("implied-taiex-line"),
+  impliedTaiex: document.getElementById("implied-taiex"),
+  txSourceLine: document.getElementById("tx-source-line"),
+  modeTabs: document.querySelectorAll(".mode-tab"),
+  method: document.getElementById("method"),
+  refreshBtn: document.getElementById("refresh-btn"),
+  latestBtn: document.getElementById("latest-btn"),
+};
+
+function assertElements() {
+  const missing = Object.entries(els)
+    .filter(([key, node]) => key !== "modeTabs" && !node)
+    .map(([key]) => key);
+  if (missing.length) {
+    throw new Error(`頁面元素缺失：${missing.join(", ")}`);
+  }
+}
+
+function fmt(n, digits = 2) {
+  return Number(n).toLocaleString("zh-TW", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function isTxMode() {
+  return inputMode === "tx";
+}
+
+function impliedPrice(taiex, model, method) {
+  const { alpha, beta, ratio, ref_taiex, ref_etf } = model;
+  if (method === "ratio") return taiex * ratio;
+  if (method === "regression") return alpha + beta * taiex;
+  return ref_etf + beta * (taiex - ref_taiex);
+}
+
+function getRawInput() {
+  const raw = parseFloat(els.input.value);
+  return Number.isNaN(raw) ? null : raw;
+}
+
+function getInputTaiex() {
+  const raw = getRawInput();
+  if (raw === null) return data?.latest.taiex ?? 0;
+  if (isTxMode()) {
+    const basis = parseFloat(els.basis.value) || 0;
+    return raw - basis;
+  }
+  return raw;
+}
+
+function applyModeUi() {
+  const tx = isTxMode();
+  els.modeTabs.forEach((tab) => {
+    const active = tab.dataset.mode === inputMode;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  els.inputLabel.textContent = tx ? `${TX_LABEL} 價格` : "TAIEX 點位";
+  els.input.placeholder = tx ? "例如 44995" : "例如 23000";
+  els.basisWrap.hidden = !tx;
+  els.impliedTaiexLine.hidden = !tx;
+  els.latestBtn.textContent = tx ? `帶入最新 ${TX_LABEL}` : "帶入最新 TAIEX";
+}
+
+function applyTxDefaults() {
+  if (!data?.latest) return;
+  const params = new URLSearchParams(location.search);
+  if (data.latest.basis != null && !params.has("basis")) {
+    els.basis.value = data.latest.basis;
+  }
+}
+
+function fillLatestPrice() {
+  if (!data?.latest) return;
+  if (isTxMode()) {
+    if (data.latest.tx != null) {
+      els.input.value = data.latest.tx;
+      if (data.latest.basis != null) els.basis.value = data.latest.basis;
+    } else if (data.latest.taiex != null) {
+      const basis = parseFloat(els.basis.value) || 0;
+      els.input.value = data.latest.taiex + basis;
+    }
+  } else if (data.latest.taiex != null) {
+    els.input.value = data.latest.taiex;
+  }
+  render();
+}
+
+function setInputMode(mode) {
+  inputMode = mode;
+  applyModeUi();
+  render();
+}
+
+function render() {
+  if (!data?.products) return;
+
+  const method = els.method.value;
+  const inputTaiex = getInputTaiex();
+  const p0050 = data.products["0050"];
+  const pInv = data.products["0050反"];
+
+  if (p0050?.model) {
+    els.impliedEtf50.textContent = fmt(impliedPrice(inputTaiex, p0050.model, method));
+  }
+  if (pInv?.model) {
+    els.impliedEtfInv.textContent = fmt(impliedPrice(inputTaiex, pInv.model, method));
+  }
+
+  if (isTxMode()) {
+    els.impliedTaiex.textContent = fmt(inputTaiex);
+    if (data.latest.tx != null) {
+      els.txSourceLine.textContent = `${TX_LABEL} ${fmt(data.latest.tx, 0)}（TradingView TXF1!）`;
+    } else {
+      els.txSourceLine.textContent = `${TX_LABEL} ${fmt(getRawInput() ?? inputTaiex, 0)}`;
+    }
+  }
+
+  const updated = new Date(data.updated_at);
+  const sample = `${data.sample.start} ~ ${data.sample.end}`;
+  els.status.textContent = `資料更新 ${updated.toLocaleString("zh-TW", {
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "numeric",
+    day: "numeric",
+  })}（樣本 ${sample}）`;
+}
+
+function readUrlParams() {
+  const params = new URLSearchParams(location.search);
+  if (params.get("mode") === "tx") inputMode = "tx";
+  const price = params.get("price");
+  const basis = params.get("basis");
+  if (price) els.input.value = price;
+  if (basis) els.basis.value = basis;
+  applyModeUi();
+}
+
+async function loadData() {
+  const res = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  data = await res.json();
+  if (!data.products?.["0050"] && !data.products?.["0050反"]) {
+    throw new Error("換算資料格式錯誤，請重新執行 python taiex_0050.py");
+  }
+  applyTxDefaults();
+  if (!getRawInput()) {
+    if (isTxMode() && data.latest.tx != null) {
+      els.input.value = data.latest.tx;
+    } else if (data.latest.taiex != null) {
+      els.input.value = data.latest.taiex;
+    }
+  }
+  render();
+}
+
+function startCountdown() {
+  countdown = REFRESH_SEC;
+  els.countdown.textContent = `${countdown}s 後更新`;
+  if (timer) clearInterval(timer);
+  timer = setInterval(async () => {
+    countdown -= 1;
+    els.countdown.textContent = `${countdown}s 後更新`;
+    if (countdown <= 0) {
+      try {
+        await loadData();
+      } catch (err) {
+        els.status.textContent = `更新失敗：${err.message}`;
+      }
+      countdown = REFRESH_SEC;
+    }
+  }, 1000);
+}
+
+try {
+  assertElements();
+  els.modeTabs.forEach((tab) => {
+    tab.addEventListener("click", () => setInputMode(tab.dataset.mode));
+  });
+  ["input", "change"].forEach((evt) => {
+    els.input.addEventListener(evt, render);
+    els.basis.addEventListener(evt, render);
+    els.method.addEventListener(evt, render);
+  });
+  els.refreshBtn.addEventListener("click", async () => {
+    els.refreshBtn.disabled = true;
+    try {
+      await loadData();
+      startCountdown();
+    } catch (err) {
+      els.status.textContent = `更新失敗：${err.message}`;
+    } finally {
+      els.refreshBtn.disabled = false;
+    }
+  });
+  els.latestBtn.addEventListener("click", fillLatestPrice);
+  readUrlParams();
+  (async () => {
+    try {
+      await loadData();
+      startCountdown();
+    } catch (err) {
+      els.status.textContent = `載入失敗：${err.message}`;
+      els.countdown.textContent = "";
+    }
+  })();
+} catch (err) {
+  if (els.status) els.status.textContent = `初始化失敗：${err.message}`;
+}
+
+</script>
+</body>
+</html>

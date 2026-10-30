@@ -676,6 +676,7 @@ def page_nav_html(active: str) -> str:
         ("tpex", "tpex.html", "上櫃"),
         ("watchlist", "watchlist.html", WATCHLIST_NAME),
         ("charts", "charts.html", "圖表"),
+        ("taiex", "taiex.html", "換算"),
     )
     parts = ['<nav class="page-nav">']
     for key, href, label in links:

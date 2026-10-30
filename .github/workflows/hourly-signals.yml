@@ -15,6 +15,9 @@ on:
       - "static/**"
       - "ardr.py"
       - "trendlines.py"
+      - "taiex_0050.py"
+      - "tradingview_quotes.py"
+      - "scripts/export_taiex_0050.py"
 
 permissions:
   contents: write
@@ -48,10 +51,17 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python -u scan_signals.py
 
+      - name: Export TAIEX → 0050 converter
+        if: github.event_name != 'push'
+        env:
+          PYTHONUNBUFFERED: "1"
+          PYTHONIOENCODING: utf-8
+        run: python -u taiex_0050.py
+
       - name: Commit signal report
         if: github.event_name != 'push'
         run: |
-          git add signals/latest.json signals/latest.html signals/index.html signals/tpex.html signals/watchlist.html signals/charts.html
+          git add signals/latest.json signals/latest.html signals/index.html signals/tpex.html signals/watchlist.html signals/charts.html signals/taiex.html signals/taiex-0050.json
           git rm -f --ignore-unmatch signals/trend200.html
           if git diff --staged --quiet; then
             echo "No signal file changes"
@@ -79,6 +89,8 @@ jobs:
           cp signals/tpex.html _site/tpex.html
           cp signals/watchlist.html _site/watchlist.html
           cp signals/charts.html _site/charts.html
+          cp signals/taiex.html _site/taiex.html
+          cp signals/taiex-0050.json _site/taiex-0050.json
           cp signals/latest.json _site/latest.json
           cp signals/chart-packs.json _site/chart-packs.json
           touch _site/.nojekyll
