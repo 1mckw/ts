@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-05T16:49:52.992253+00:00",
+  "updated_at": "2026-11-05T22:36:49.070810+00:00",
   "symbols": {
     "taiex": "TWSE:IX0001",
     "tx": "TAIFEX:TXF1!"
@@ -8,8 +8,8 @@
     "taiex": 41574.72,
     "0050": 99.85,
     "0050反": 10.58,
-    "tx": 39846.0,
-    "basis": -1728.72
+    "tx": 38936.0,
+    "basis": -2638.72
   },
   "taiex": {
     "symbol": "TWSE:IX0001",
@@ -31,15 +31,15 @@
   "tx": {
     "symbol": "TAIFEX:TXF1!",
     "name": "TAIEX FUTURES",
-    "price": 39846.0,
-    "close": 39846.0,
+    "price": 38936.0,
+    "close": 38936.0,
     "lp": null,
     "change": null,
-    "change_pct": -4.8613,
+    "change_pct": -7.034,
     "open": 41990.0,
     "high": 43114.0,
-    "low": 39365.0,
-    "volume": 64401,
+    "low": 38799.0,
+    "volume": 89277,
     "source": "TradingView",
     "url": "https://www.tradingview.com/symbols/TAIFEX-TXF1!/"
   },
