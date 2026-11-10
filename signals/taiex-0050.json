@@ -1,27 +1,27 @@
 {
-  "updated_at": "2026-11-10T02:05:49.839099+00:00",
+  "updated_at": "2026-11-10T09:22:34.829909+00:00",
   "symbols": {
     "taiex": "TWSE:IX0001",
     "tx": "TAIFEX:TXF1!"
   },
   "latest": {
-    "taiex": 42952.24,
-    "0050": 100.3,
-    "0050反": 10.54,
-    "tx": 42833.0,
-    "basis": -119.24
+    "taiex": 42711.92,
+    "0050": 99.7,
+    "0050反": 10.65,
+    "tx": 42580.0,
+    "basis": -131.92
   },
   "taiex": {
     "symbol": "TWSE:IX0001",
     "name": "TSEC CAPITALIZATION WEIGHTED STOCK INDEX",
-    "price": 42952.24,
-    "close": 42952.24,
+    "price": 42711.92,
+    "close": 42711.92,
     "lp": null,
     "change": null,
-    "change_pct": 3.0977,
+    "change_pct": 2.5208,
     "open": 42130.33,
     "high": 43135.92,
-    "low": 42130.33,
+    "low": 41930.03,
     "volume": null,
     "source": "TradingView",
     "display": "INDEX:TAIEX",
@@ -31,15 +31,15 @@
   "tx": {
     "symbol": "TAIFEX:TXF1!",
     "name": "TAIEX FUTURES",
-    "price": 42833.0,
-    "close": 42833.0,
+    "price": 42580.0,
+    "close": 42580.0,
     "lp": null,
     "change": null,
-    "change_pct": 3.2668,
-    "open": 41240.0,
-    "high": 43108.0,
-    "low": 40715.0,
-    "volume": 84419,
+    "change_pct": -0.1548,
+    "open": 42503.0,
+    "high": 42824.0,
+    "low": 42357.0,
+    "volume": 8287,
     "source": "TradingView",
     "url": "https://www.tradingview.com/symbols/TAIFEX-TXF1!/"
   },
@@ -65,65 +65,60 @@
     }
   },
   "sample": {
-    "start": "2026-08-11",
+    "start": "2026-08-12",
     "end": "2026-11-10",
     "days": 60
   },
   "products": {
     "0050": {
       "symbol": "0050.TW",
-      "latest": 100.3,
+      "latest": 99.7,
       "model": {
         "method": "spread",
-        "alpha": -3.154281,
-        "beta": 0.00239044,
-        "ratio": 0.00232684,
-        "ref_taiex": 43105.67,
-        "ref_etf": 100.3
+        "alpha": -1.877708,
+        "beta": 0.0023634,
+        "ratio": 0.00233424,
+        "ref_taiex": 42711.92,
+        "ref_etf": 99.7
       },
       "scenarios": [
         {
           "label": "-3%",
-          "taiex": 41812.5,
-          "etf": 97.21
+          "taiex": 41430.56,
+          "etf": 96.67
         },
         {
           "label": "-2%",
-          "taiex": 42243.56,
-          "etf": 98.24
+          "taiex": 41857.68,
+          "etf": 97.68
         },
         {
           "label": "-1%",
-          "taiex": 42674.62,
-          "etf": 99.27
+          "taiex": 42284.8,
+          "etf": 98.69
         },
         {
           "label": "基準",
-          "taiex": 43105.67,
-          "etf": 100.3
+          "taiex": 42711.92,
+          "etf": 99.7
         },
         {
           "label": "+1%",
-          "taiex": 43536.73,
-          "etf": 101.33
+          "taiex": 43139.04,
+          "etf": 100.71
         },
         {
           "label": "+2%",
-          "taiex": 43967.79,
-          "etf": 102.36
+          "taiex": 43566.16,
+          "etf": 101.72
         },
         {
           "label": "+3%",
-          "taiex": 44398.84,
-          "etf": 103.39
+          "taiex": 43993.28,
+          "etf": 102.73
         }
       ],
       "history": [
-        {
-          "date": "2026-08-11",
-          "taiex": 45120.72,
-          "etf": 104.6
-        },
         {
           "date": "2026-08-12",
           "taiex": 45518.07,
@@ -415,66 +410,66 @@
           "etf": 92.5
         },
         {
+          "date": "2026-11-09",
+          "taiex": 41661.7,
+          "etf": 97.45
+        },
+        {
           "date": "2026-11-10",
-          "taiex": 43105.67,
-          "etf": 100.3
+          "taiex": 42711.92,
+          "etf": 99.7
         }
       ]
     },
     "0050反": {
       "symbol": "00632R.TW",
-      "latest": 10.54,
+      "latest": 10.65,
       "model": {
         "method": "spread",
-        "alpha": 20.198362,
-        "beta": -0.00022296,
-        "ratio": 0.00024452,
-        "ref_taiex": 43105.67,
-        "ref_etf": 10.54
+        "alpha": 20.206002,
+        "beta": -0.00022313,
+        "ratio": 0.00024934,
+        "ref_taiex": 42711.92,
+        "ref_etf": 10.65
       },
       "scenarios": [
         {
           "label": "-3%",
-          "taiex": 41812.5,
-          "etf": 10.83
+          "taiex": 41430.56,
+          "etf": 10.94
         },
         {
           "label": "-2%",
-          "taiex": 42243.56,
-          "etf": 10.73
+          "taiex": 41857.68,
+          "etf": 10.84
         },
         {
           "label": "-1%",
-          "taiex": 42674.62,
-          "etf": 10.64
+          "taiex": 42284.8,
+          "etf": 10.75
         },
         {
           "label": "基準",
-          "taiex": 43105.67,
-          "etf": 10.54
+          "taiex": 42711.92,
+          "etf": 10.65
         },
         {
           "label": "+1%",
-          "taiex": 43536.73,
-          "etf": 10.44
+          "taiex": 43139.04,
+          "etf": 10.55
         },
         {
           "label": "+2%",
-          "taiex": 43967.79,
-          "etf": 10.35
+          "taiex": 43566.16,
+          "etf": 10.46
         },
         {
           "label": "+3%",
-          "taiex": 44398.84,
-          "etf": 10.25
+          "taiex": 43993.28,
+          "etf": 10.36
         }
       ],
       "history": [
-        {
-          "date": "2026-08-11",
-          "taiex": 45120.72,
-          "etf": 10.16
-        },
         {
           "date": "2026-08-12",
           "taiex": 45518.07,
@@ -766,9 +761,14 @@
           "etf": 11.46
         },
         {
+          "date": "2026-11-09",
+          "taiex": 41661.7,
+          "etf": 10.91
+        },
+        {
           "date": "2026-11-10",
-          "taiex": 43105.67,
-          "etf": 10.54
+          "taiex": 42711.92,
+          "etf": 10.65
         }
       ]
     }
